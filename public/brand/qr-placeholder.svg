@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 290 290" shape-rendering="crispEdges">
+  <rect width="290" height="290" fill="#fff"/>
+  <g fill="#060a22">
+    <path d="M20 20h70v70H20zM30 30v50h50V30zM40 40h30v30H40z" fill-rule="evenodd"/>
+    <path d="M200 20h70v70h-70zm10 10v50h50V30zm10 10h30v30h-30z" fill-rule="evenodd"/>
+    <path d="M20 200h70v70H20zm10 10v50h50v-50zm10 10h30v30H40z" fill-rule="evenodd"/>
+    <path d="M110 20h10v10h-10zM130 30h10v20h-10zM150 20h20v10h-20zM110 50h20v10h-20zM160 50h10v20h-10zM120 70h20v10h-20zM20 110h20v10H20zM50 110h10v20H50zM70 120h20v10H70zM20 140h10v20H20zM40 150h30v10H40zM80 140h10v30H80zM200 110h10v20h-10zM220 110h30v10h-30zM260 120h10v30h-10zM210 140h20v10h-20zM230 160h20v10h-20zM200 170h10v20h-10zM110 200h10v30h-10zM130 210h20v10h-20zM160 200h10v20h-10zM120 250h30v10h-30zM160 240h10v30h-10zM200 200h20v10h-20zM230 200h10v20h-10zM250 210h20v10h-20zM200 230h10v20h-10zM220 240h30v10h-30zM260 250h10v20h-10zM210 260h20v10h-20z"/>
+  </g>
+  <rect x="95" y="105" width="100" height="80" rx="10" fill="#ffe21a" stroke="#060a22" stroke-width="4"/>
+  <text x="145" y="138" text-anchor="middle" font-family="Arial, sans-serif" font-weight="900" font-size="18" fill="#060a22">QR CODE</text>
+  <text x="145" y="160" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700" font-size="12" fill="#060a22">PLACEHOLDER</text>
+</svg>

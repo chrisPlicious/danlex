@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+/* Palette sampled from the Danlex Pickle Court logo */
+@theme {
+  --color-navy-950: #060a22;
+  --color-navy-900: #0a1033;
+  --color-navy-800: #111a4a;
+  --color-navy-700: #1a2563;
+  --color-navy-600: #26337d;
+  --color-ink: #9aa7d9;
+
+  --color-electric: #1e63ff;
+  --color-electric-soft: #5b8cff;
+  --color-magenta: #ff2e8b;
+  --color-magenta-soft: #ff6aac;
+  --color-ball: #ffe21a;
+  --color-flame: #ff6b1a;
+  --color-court: #2fbf4e;
+  --color-chrome: #eaf0ff;
+  --color-danger: #ff4d5e;
+
+  --font-display: var(--font-kanit), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-barlow), ui-sans-serif, system-ui, sans-serif;
+
+  --animate-pulse-live: pulse-live 1.4s ease-in-out infinite;
+
+  @keyframes pulse-live {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--color-navy-950);
+  background-image:
+    radial-gradient(60rem 40rem at -10% -10%, rgb(30 99 255 / 0.22), transparent 60%),
+    radial-gradient(50rem 36rem at 110% 0%, rgb(255 46 139 / 0.18), transparent 60%),
+    radial-gradient(40rem 30rem at 50% 120%, rgb(255 226 26 / 0.08), transparent 60%);
+  background-attachment: fixed;
+  color: var(--color-chrome);
+  font-family: var(--font-sans);
+}
+
+@utility text-flame {
+  background-image: linear-gradient(180deg, var(--color-ball) 10%, var(--color-flame) 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility bg-flame {
+  background-image: linear-gradient(100deg, var(--color-ball), var(--color-flame));
+}
+
+@utility halftone {
+  background-image: radial-gradient(rgb(255 255 255 / 0.07) 1px, transparent 1.2px);
+  background-size: 7px 7px;
+}
+
+@utility display {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  line-height: 0.95;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-ball);
+  outline-offset: 2px;
+}

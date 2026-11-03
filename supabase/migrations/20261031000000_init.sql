@@ -183,6 +183,8 @@ create trigger registrations_recount
   after insert or delete or update of status, division_id on public.registrations
   for each row execute function public.registrations_recount();
 
+revoke all on function public.recount_division(uuid) from public, anon, authenticated;
+
 -- ---------------------------------------------------------------------------
 -- public registration (called server-side with the service role only)
 -- ---------------------------------------------------------------------------
@@ -440,6 +442,8 @@ create policy "payment proofs admin read" on storage.objects
 create policy "payment proofs admin delete" on storage.objects
   for delete to authenticated using (bucket_id = 'payment-proofs' and public.is_admin());
 
+create policy "public assets admin read" on storage.objects
+  for select to authenticated using (bucket_id = 'public-assets' and public.is_admin());
 create policy "public assets admin insert" on storage.objects
   for insert to authenticated with check (bucket_id = 'public-assets' and public.is_admin());
 create policy "public assets admin update" on storage.objects

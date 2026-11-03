@@ -1,10 +1,8 @@
-import { existsSync } from "node:fs";
-import path from "node:path";
 import Image from "next/image";
 
-/** Drop the official logo at public/brand/danlex-logo.png; until then a type-only lockup is shown. */
+/** Drop the official logo at public/brand/danlex-logo.png and rebuild; until then a type-only lockup is shown. */
 const LOGO_SRC = "/brand/danlex-logo.png";
-const hasLogo = existsSync(path.join(process.cwd(), "public", LOGO_SRC));
+const hasLogo = process.env.NEXT_PUBLIC_HAS_LOGO === "1";
 
 export function Wordmark() {
   return (
@@ -15,7 +13,8 @@ export function Wordmark() {
         <BallIcon className="size-8 text-ball drop-shadow-[0_0_8px_rgb(255_226_26/0.5)]" />
       )}
       <span className="display text-lg">
-        <span className="text-flame">Danlex</span> <span className="text-chrome">Pickle Court</span>
+        <span className="text-flame">Danlex</span>{" "}
+        <span className="hidden text-chrome min-[420px]:inline">Pickle Court</span>
       </span>
     </span>
   );

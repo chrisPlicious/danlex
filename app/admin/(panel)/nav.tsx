@@ -11,12 +11,12 @@ const LINKS = [
   { href: "/admin/settings", label: "Tournament & divisions" },
 ];
 
-export function AdminNav() {
-  const path = usePathname();
+/** Static links; also the Suspense fallback while the pathname is unknown. */
+export function NavLinks({ path }: { path?: string }) {
   return (
     <nav className="-mx-1 flex flex-wrap gap-1" aria-label="Admin">
       {LINKS.map((l) => {
-        const active = l.href === "/admin" ? path === "/admin" : path.startsWith(l.href);
+        const active = path !== undefined && (l.href === "/admin" ? path === "/admin" : path.startsWith(l.href));
         return (
           <Link
             key={l.href}
@@ -33,4 +33,8 @@ export function AdminNav() {
       })}
     </nav>
   );
+}
+
+export function AdminNav() {
+  return <NavLinks path={usePathname()} />;
 }

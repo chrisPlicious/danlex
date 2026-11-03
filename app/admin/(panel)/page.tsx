@@ -1,11 +1,20 @@
 import Link from "next/link";
-import { Badge, buttonClass, Card, SlotMeter } from "@/components/ui";
+import { Suspense } from "react";
+import { Badge, buttonClass, Card, Skeleton, SlotMeter } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
 import { dateTime, money } from "@/lib/format";
 import { getAdminTournament } from "@/lib/queries";
 import { displayName, type BracketRow, type Registration } from "@/lib/types";
 
-export default async function Dashboard() {
+export default function Dashboard() {
+  return (
+    <Suspense fallback={<Skeleton className="h-96" />}>
+      <DashboardContent />
+    </Suspense>
+  );
+}
+
+async function DashboardContent() {
   const { sb } = await requireAdmin();
   const data = await getAdminTournament();
   if (!data) {

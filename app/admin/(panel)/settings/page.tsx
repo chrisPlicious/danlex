@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import { Suspense } from "react";
 import { ActionForm, SubmitButton } from "@/components/action-form";
-import { Badge, Card, Field, Input, Select, Textarea } from "@/components/ui";
+import { Badge, Card, Field, Input, Select, Skeleton, Textarea } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
 import { getAdminTournament, publicAssetUrl, QR_PLACEHOLDER } from "@/lib/queries";
 import type { Division, Tournament } from "@/lib/types";
@@ -9,7 +10,15 @@ import { deleteDivision, removeQr, saveDivision, saveTournament, uploadQr } from
 
 export const metadata: Metadata = { title: "Tournament & divisions" };
 
-export default async function SettingsPage() {
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<Skeleton className="h-96" />}>
+      <SettingsContent />
+    </Suspense>
+  );
+}
+
+async function SettingsContent() {
   await requireAdmin();
   const data = await getAdminTournament();
 

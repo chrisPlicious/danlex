@@ -67,14 +67,14 @@ async function loadBracket(sb: Client, divisionId: string): Promise<BracketBundl
 
   const [{ data: matches, error: mErr }, { data: entrants, error: eErr }] = await Promise.all([
     sb.from("matches").select("*").eq("bracket_id", bracket.id).returns<MatchRow[]>(),
-    sb.rpc("get_public_entrants", { p_division_id: divisionId }).returns<PublicEntrant[]>(),
+    sb.rpc("get_public_entrants", { p_division_id: divisionId }),
   ]);
   if (mErr) throw mErr;
   if (eErr) throw eErr;
   return {
     bracket,
     matches: matches ?? [],
-    entrants: Object.fromEntries((entrants ?? []).map((e) => [e.id, e.display_name])),
+    entrants: Object.fromEntries(((entrants ?? []) as PublicEntrant[]).map((e) => [e.id, e.display_name])),
   };
 }
 
@@ -90,9 +90,7 @@ export async function getAdminBracket(divisionId: string) {
 
 export async function getPublicEntrants(divisionId: string): Promise<PublicEntrant[]> {
   await connection();
-  const { data, error } = await createPublicClient()
-    .rpc("get_public_entrants", { p_division_id: divisionId })
-    .returns<PublicEntrant[]>();
+  const { data, error } = await createPublicClient().rpc("get_public_entrants", { p_division_id: divisionId });
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []) as PublicEntrant[];
 }

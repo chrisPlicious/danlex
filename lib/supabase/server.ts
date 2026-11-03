@@ -2,10 +2,13 @@ import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { createClient as createPlainClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import { supabasePublicKey, supabaseServiceKey, supabaseUrl } from "@/lib/env";
 
 /** Cookie-bound client: acts as the signed-in admin (RLS applies). */
 export async function createSessionClient() {
+  // supabase-js reads the clock while validating the session; keep that out of prerendering
+  await connection();
   const cookieStore = await cookies();
   return createServerClient(supabaseUrl(), supabasePublicKey(), {
     cookies: {

@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { Skeleton } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
 import { signOut } from "../actions/settings";
-import { AdminNav } from "./nav";
+import { AdminNav, NavLinks } from "./nav";
 
 export const metadata: Metadata = { title: { default: "Admin", template: "%s · Admin" }, robots: { index: false } };
 
@@ -11,7 +11,9 @@ export default function AdminLayout({ children }: LayoutProps<"/admin">) {
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
-        <AdminNav />
+        <Suspense fallback={<NavLinks />}>
+          <AdminNav />
+        </Suspense>
         <form action={signOut}>
           <button className="text-sm font-semibold text-ink hover:text-chrome">Sign out</button>
         </form>

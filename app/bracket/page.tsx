@@ -4,9 +4,8 @@ import { Suspense } from "react";
 import { LiveBracket } from "@/components/bracket/live-bracket";
 import { Podium } from "@/components/bracket/podium";
 import { Badge, cn, Skeleton } from "@/components/ui";
-import { getPodium } from "@/lib/bracket";
+import { describeFormat, getPodium } from "@/lib/bracket";
 import { toEngine } from "@/lib/bracket-db";
-import { describeFormat } from "@/lib/bracket";
 import { getActiveTournament, getPublicBracket, getPublicEntrants } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Bracket" };

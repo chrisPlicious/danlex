@@ -1,13 +1,22 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Badge, buttonClass, Card } from "@/components/ui";
+import { Suspense } from "react";
+import { Badge, buttonClass, Card, Skeleton } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
 import { getAdminTournament } from "@/lib/queries";
 import type { BracketRow } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Brackets" };
 
-export default async function BracketsIndex() {
+export default function BracketsIndex() {
+  return (
+    <Suspense fallback={<Skeleton className="h-96" />}>
+      <BracketsContent />
+    </Suspense>
+  );
+}
+
+async function BracketsContent() {
   const { sb } = await requireAdmin();
   const data = await getAdminTournament();
   if (!data) return <p className="text-ink">Create a tournament first.</p>;

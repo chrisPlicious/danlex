@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { ActionForm, SubmitButton } from "@/components/action-form";
-import { Badge, buttonClass, Card, cn, Field, Input, Select, Textarea } from "@/components/ui";
+import { Badge, buttonClass, Card, cn, Field, Input, Select, Skeleton, Textarea } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
 import { dateTime } from "@/lib/format";
 import { getAdminTournament } from "@/lib/queries";
@@ -17,7 +18,19 @@ export const metadata: Metadata = { title: "Registrations" };
 
 const STATUSES = ["confirmed", "rejected", "withdrawn"] as const;
 
-export default async function RegistrationsPage({ searchParams }: PageProps<"/admin/registrations">) {
+export default function RegistrationsPage({ searchParams }: PageProps<"/admin/registrations">) {
+  return (
+    <Suspense fallback={<Skeleton className="h-96" />}>
+      <RegistrationsContent searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function RegistrationsContent({
+  searchParams,
+}: {
+  searchParams: PageProps<"/admin/registrations">["searchParams"];
+}) {
   const { sb } = await requireAdmin();
   const { division: divisionParam, status: statusParam } = await searchParams;
   const data = await getAdminTournament();
@@ -114,7 +127,7 @@ export default async function RegistrationsPage({ searchParams }: PageProps<"/ad
               key={r.id}
               r={r}
               division={byId[r.division_id]}
-              proof={r.payment_proof_path ? proofUrl.get(r.payment_proof_path) : undefined}
+              proof={(r.payment_proof_path && proofUrl.get(r.payment_proof_path)) || undefined}
             />
           ))}
         </div>

@@ -17,8 +17,8 @@ export function useLiveDivisions(initial: Division[]): Division[] {
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "divisions", filter: `tournament_id=eq.${tournamentId}` },
-        (payload) => {
-          const next = payload.new as Division;
+        (payload: { new: Partial<Division> }) => {
+          const next = payload.new;
           setDivisions((prev) => prev.map((d) => (d.id === next.id ? { ...d, ...next } : d)));
         },
       )

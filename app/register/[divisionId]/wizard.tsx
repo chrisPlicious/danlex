@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Alert, Badge, Button, cn, Field, Input, SlotMeter } from "@/components/ui";
 import { useLiveDivisions } from "@/components/use-live-divisions";
 import { compressImage } from "@/lib/compress-image";
@@ -48,12 +48,14 @@ export function RegistrationWizard({
   const [pending, startTransition] = useTransition();
   const [phase, setPhase] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!file) return setPreview(null);
-    const url = URL.createObjectURL(file);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
+  function choose(next: File | null) {
+    setError(null);
+    setFile(next);
+    setPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return next ? URL.createObjectURL(next) : null;
+    });
+  }
 
   const set = (key: keyof Details) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setDetails((d) => ({ ...d, [key]: e.target.value }));
@@ -62,14 +64,17 @@ export function RegistrationWizard({
     const errs: Record<string, string> = {};
     if (details.player1Name.trim().length < 2) errs.player1Name = "Enter your full name";
     if (!/^[0-9+()\-\s]{7,20}$/.test(details.player1Phone.trim())) errs.player1Phone = "Enter a valid mobile number";
-    if (!/^\S+@\S+\.\S+$/.test(details.player1Email.trim())) errs.player1Email = "Enter a valid email";
     if (doubles && (details.player2Name ?? "").trim().length < 2) errs.player2Name = "Enter your partner's name";
     setFieldErrors(errs);
     return Object.keys(errs).length === 0;
   }
 
   function submit() {
+    if (!/^\S+@\S+\.\S+$/.test(details.player1Email.trim())) {
+      return setFieldErrors({ player1Email: "Enter the email where we should send your confirmation" });
+    }
     if (!file) return setError("Please choose your payment screenshot.");
+    setFieldErrors({});
     setError(null);
     startTransition(async () => {
       try {
@@ -96,7 +101,8 @@ export function RegistrationWizard({
         if (!result.ok) {
           if ("fields" in result && result.fields) {
             setFieldErrors(result.fields);
-            setStep(0);
+            // email lives on this step; anything else sends them back to the details form
+            if (Object.keys(result.fields).some((f) => f !== "player1Email")) setStep(0);
           }
           return setError(result.error);
         }
@@ -155,14 +161,9 @@ export function RegistrationWizard({
                 <Field label="Full name" error={fieldErrors.player1Name}>
                   <Input autoComplete="name" value={details.player1Name} onChange={set("player1Name")} />
                 </Field>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Mobile number" error={fieldErrors.player1Phone}>
-                    <Input type="tel" inputMode="tel" autoComplete="tel" value={details.player1Phone} onChange={set("player1Phone")} />
-                  </Field>
-                  <Field label="Email" error={fieldErrors.player1Email}>
-                    <Input type="email" autoComplete="email" value={details.player1Email} onChange={set("player1Email")} />
-                  </Field>
-                </div>
+                <Field label="Mobile number" error={fieldErrors.player1Phone}>
+                  <Input type="tel" inputMode="tel" autoComplete="tel" value={details.player1Phone} onChange={set("player1Phone")} />
+                </Field>
               </fieldset>
 
               {doubles && (
@@ -244,7 +245,23 @@ export function RegistrationWizard({
           {step === 2 && (
             <div className="space-y-5">
               <h2 className="display text-2xl">Upload payment proof</h2>
-              <p className="text-ink">Your slot is confirmed as soon as your screenshot is uploaded.</p>
+              <p className="text-ink">
+                Your slot is confirmed as soon as your screenshot is uploaded. We&apos;ll email your confirmation code.
+              </p>
+              <Field
+                label="Email for your confirmation"
+                hint="No account needed — this is just where your confirmation goes."
+                error={fieldErrors.player1Email}
+              >
+                <Input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={details.player1Email}
+                  onChange={set("player1Email")}
+                />
+              </Field>
               <label
                 className={cn(
                   "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-6 text-center transition",
@@ -262,10 +279,7 @@ export function RegistrationWizard({
                   type="file"
                   accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
                   className="sr-only"
-                  onChange={(e) => {
-                    setError(null);
-                    setFile(e.target.files?.[0] ?? null);
-                  }}
+                  onChange={(e) => choose(e.target.files?.[0] ?? null)}
                 />
               </label>
 

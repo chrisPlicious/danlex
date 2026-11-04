@@ -1,17 +1,11 @@
 import Image from "next/image";
+import logo from "@/public/brand/danlex-logo.webp";
 
-/** Drop the official logo at public/brand/danlex-logo.png and rebuild; until then a type-only lockup is shown. */
-const LOGO_SRC = "/brand/danlex-logo.png";
-const hasLogo = process.env.NEXT_PUBLIC_HAS_LOGO === "1";
-
+/** Header lockup: the full logo is too detailed at icon size, so the ball stands in for it. */
 export function Wordmark() {
   return (
     <span className="flex items-center gap-2">
-      {hasLogo ? (
-        <Image src={LOGO_SRC} alt="" width={36} height={36} className="size-9" priority />
-      ) : (
-        <BallIcon className="size-8 text-ball drop-shadow-[0_0_8px_rgb(255_226_26/0.5)]" />
-      )}
+      <BallIcon className="size-8 text-ball drop-shadow-[0_0_8px_rgb(255_226_26/0.5)]" />
       <span className="display text-lg">
         <span className="text-flame">Danlex</span>{" "}
         <span className="hidden text-chrome min-[420px]:inline">Pickle Court</span>
@@ -21,27 +15,15 @@ export function Wordmark() {
 }
 
 export function HeroLogo() {
-  if (hasLogo) {
-    return (
-      <Image
-        src={LOGO_SRC}
-        alt="Danlex Pickle Court"
-        width={520}
-        height={520}
-        priority
-        className="mx-auto w-full max-w-[22rem] drop-shadow-[0_20px_60px_rgb(255_46_139/0.35)] sm:max-w-md"
-      />
-    );
-  }
   return (
-    <div className="relative mx-auto grid aspect-square w-full max-w-[20rem] place-items-center rounded-full border-4 border-ball bg-gradient-to-br from-electric via-navy-800 to-magenta shadow-[0_0_80px_rgb(255_46_139/0.35)]">
-      <div className="halftone absolute inset-0 rounded-full" />
-      <div className="relative text-center">
-        <BallIcon className="mx-auto mb-3 size-20 text-ball" />
-        <p className="display text-5xl text-flame">Danlex</p>
-        <p className="display mt-1 text-2xl text-chrome">Pickle Court</p>
-      </div>
-    </div>
+    <Image
+      src={logo}
+      alt="Danlex Pickle Court — Dan and Alex"
+      sizes="(min-width: 640px) 28rem, 22rem"
+      preload
+      placeholder="blur"
+      className="mx-auto h-auto w-full max-w-[22rem] drop-shadow-[0_20px_60px_rgb(255_46_139/0.35)] sm:max-w-md"
+    />
   );
 }
 

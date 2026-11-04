@@ -24,8 +24,9 @@ double-elimination brackets (winners + losers bracket, grand final with reset). 
 3. **Database** — apply `supabase/migrations/*.sql` then `supabase/seed.sql`
    (`npx supabase db push` on a linked project, or paste into the SQL editor).
 4. **Admin account** — set `ADMIN_EMAIL` / `ADMIN_PASSWORD` in `.env.local`, then `npm run admin:create`.
-5. **Logo** — save the logo as `public/brand/danlex-logo.png` (a text wordmark is shown until then).
-6. `npm run dev`
+5. `npm run dev`
+
+The hero logo lives at `public/brand/danlex-logo.webp` (transparent background); replace that file to update it.
 
 Change the slot cap any time in **Admin → Tournament & divisions** (default 6 per division).
 

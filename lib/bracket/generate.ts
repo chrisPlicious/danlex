@@ -65,6 +65,12 @@ export function seedingOf(b: Bracket): string[] {
   return seeds.filter(Boolean);
 }
 
+/** True when the bracket places exactly these entrants, in any order. */
+export function hasExactEntrants(b: Bracket, entrantIds: string[]): boolean {
+  const placed = new Set(seedingOf(b));
+  return placed.size === entrantIds.length && entrantIds.every((id) => placed.has(id));
+}
+
 export interface GenerateOptions {
   grandFinalReset: boolean;
 }

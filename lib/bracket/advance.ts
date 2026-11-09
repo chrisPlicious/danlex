@@ -185,10 +185,10 @@ export function loserId(m: BracketMatch): string | null {
 
 /** Deciding grand final once the tournament is over, else null. */
 function decidingFinal(b: Bracket): BracketMatch | null {
-  const gf1 = findMatch(b, GF1);
+  const gf1 = b.matches.find((m) => m.code === GF1);
   const gf2 = b.matches.find((m) => m.code === GF2);
   if (gf2 && isDecided(gf2)) return gf2;
-  if (isDecided(gf1) && (!gf2 || gf2.status === "not_needed")) return gf1;
+  if (gf1 && isDecided(gf1) && (!gf2 || gf2.status === "not_needed")) return gf1;
   return null;
 }
 

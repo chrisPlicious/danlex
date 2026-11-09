@@ -1,25 +1,39 @@
 @import "tailwindcss";
 
-/* Palette sampled from the Danlex Pickle Court logo */
+@custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
+
+/* 1970s racquet club: court green, bending stripes, cream tickets. Bright accents come from the Danlex logo. */
 @theme {
-  --color-navy-950: #060a22;
-  --color-navy-900: #0a1033;
-  --color-navy-800: #111a4a;
-  --color-navy-700: #1a2563;
-  --color-navy-600: #26337d;
-  --color-ink: #9aa7d9;
-
+  /* Brand colours: the same in both themes. */
+  --color-pine-950: #072319;
+  --color-pine-900: #0d3b2e;
+  --color-pine-800: #124a3a;
+  --color-pine-700: #1a5c49;
+  --color-pine-600: #24705a;
+  --color-cream: #fff3d6;
+  --color-board: #14231f;
   --color-electric: #1e63ff;
-  --color-electric-soft: #5b8cff;
   --color-magenta: #ff2e8b;
-  --color-magenta-soft: #ff6aac;
-  --color-ball: #ffe21a;
+  --color-ball: #ffc21a;
   --color-flame: #ff6b1a;
-  --color-court: #2fbf4e;
-  --color-chrome: #eaf0ff;
-  --color-danger: #ff4d5e;
 
-  --font-display: var(--font-kanit), ui-sans-serif, system-ui, sans-serif;
+  /* Theme colours: dark values here, light values in [data-theme="light"] below. */
+  --color-page: #0d3b2e;
+  --color-panel: #124a3a;
+  --color-well: #0c3428;
+  --color-foot: #072319;
+  --color-ticket: #fff3d6;
+  --color-fg: #fff3d6;
+  --color-ink: #b9d0be;
+  --color-accent: #ffc21a;
+  --color-court: #5be07a;
+  --color-danger: #ff8f8f;
+  --color-electric-soft: #8fb2ff;
+  --color-magenta-soft: #ff8fc0;
+  --color-logo-shadow: rgb(0 0 0 / 0.45);
+
+  --font-display: var(--font-shrikhand), ui-serif, Georgia, serif;
+  --font-score: var(--font-kanit), ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-barlow), ui-sans-serif, system-ui, sans-serif;
 
   --animate-pulse-live: pulse-live 1.4s ease-in-out infinite;
@@ -34,43 +48,68 @@
   color-scheme: dark;
 }
 
+[data-theme="light"] {
+  color-scheme: light;
+  --color-page: #fbf3de;
+  --color-panel: #e4ecd8;
+  --color-well: #fffdf6;
+  --color-foot: #efe5c8;
+  --color-ticket: #fffdf6;
+  --color-fg: #0d3b2e;
+  --color-ink: #3d5c50;
+  --color-accent: #8a5a00;
+  --color-court: #0f6e33;
+  --color-danger: #b42318;
+  --color-electric-soft: #1e4fd1;
+  --color-magenta-soft: #b5125f;
+  --color-logo-shadow: rgb(13 59 46 / 0.25);
+}
+
 body {
-  background-color: var(--color-navy-950);
-  background-image:
-    radial-gradient(60rem 40rem at -10% -10%, rgb(30 99 255 / 0.22), transparent 60%),
-    radial-gradient(50rem 36rem at 110% 0%, rgb(255 46 139 / 0.18), transparent 60%),
-    radial-gradient(40rem 30rem at 50% 120%, rgb(255 226 26 / 0.08), transparent 60%);
-  background-attachment: fixed;
-  color: var(--color-chrome);
+  background-color: var(--color-page);
+  color: var(--color-fg);
   font-family: var(--font-sans);
 }
 
-@utility text-flame {
-  background-image: linear-gradient(180deg, var(--color-ball) 10%, var(--color-flame) 90%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+/* A scoreboard stays dark in both themes, so anything inside it keeps the dark text colours. */
+@utility on-board {
+  --color-fg: #fff3d6;
+  --color-ink: #b9d0be;
+  --color-accent: #ffc21a;
+  --color-court: #5be07a;
+  color: var(--color-fg);
 }
 
-@utility bg-flame {
-  background-image: linear-gradient(100deg, var(--color-ball), var(--color-flame));
-}
-
-@utility halftone {
-  background-image: radial-gradient(rgb(255 255 255 / 0.07) 1px, transparent 1.2px);
-  background-size: 7px 7px;
-}
-
+/* Shrikhand only comes in one weight and is italic by design, so nothing should fake a bolder or slanted cut. */
 @utility display {
   font-family: var(--font-display);
-  font-style: italic;
-  font-weight: 900;
-  letter-spacing: -0.01em;
-  text-transform: uppercase;
-  line-height: 0.95;
+  font-weight: 400;
+  font-synthesis: none;
+  line-height: 1;
 }
 
-:focus-visible {
-  outline: 2px solid var(--color-ball);
-  outline-offset: 2px;
+/* Scoreboard numerals. Also for prices and codes, where Shrikhand lacks the glyph or reads less clearly. */
+@utility score {
+  font-family: var(--font-score);
+  font-style: italic;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+@utility stripes {
+  background-image: linear-gradient(
+    180deg,
+    var(--color-ball) 0 33.34%,
+    var(--color-flame) 33.34% 66.67%,
+    var(--color-magenta) 66.67%
+  );
+}
+
+/* In the base layer so a utility can recolour the outline on light surfaces. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
 }

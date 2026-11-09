@@ -9,7 +9,7 @@ import { BracketAdmin } from "./bracket-admin";
 export default function AdminBracketPage({ params }: PageProps<"/admin/brackets/[divisionId]">) {
   return (
     <div className="space-y-6">
-      <Link href="/admin/brackets" className="text-sm font-semibold text-ink hover:text-chrome">
+      <Link href="/admin/brackets" className="text-sm font-semibold text-ink hover:text-fg">
         ← All brackets
       </Link>
       <Suspense fallback={<Skeleton className="h-96" />}>

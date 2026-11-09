@@ -8,6 +8,7 @@ import {
   findMatch,
   generateDoubleElimination,
   getChampion,
+  hasExactEntrants,
   previewUndo,
   randomSeed,
   recordResult,
@@ -27,6 +28,10 @@ const fail = (error: string): BracketResult => ({ ok: false, error });
 const Id = z.uuid();
 const Code = z.string().regex(/^(?:[WL]\d{1,2}-\d{1,3}|GF[12])$/);
 const Games = z.array(z.object({ p1: z.number().int().min(0).max(99), p2: z.number().int().min(0).max(99) })).max(9);
+
+// Supabase returns at most 1,000 rows per read by default. 257+ entrants need 1,023 match rows,
+// so a bigger bracket would load with matches missing.
+const MAX_ENTRANTS = 256;
 
 type Sb = Awaited<ReturnType<typeof adminClient>>;
 
@@ -78,6 +83,9 @@ export async function generateBracket(divisionId: string): Promise<BracketResult
 
   const ids = await confirmedEntrants(sb, divisionId);
   if (ids.length < 2) return fail("At least 2 confirmed entries are needed to draw a bracket.");
+  if (ids.length > MAX_ENTRANTS) {
+    return fail(`A bracket can hold ${MAX_ENTRANTS} entries and this division has ${ids.length}. Split it into two divisions.`);
+  }
 
   const seed = randomSeed();
   const b = generateDoubleElimination(shuffle(ids, seed), { grandFinalReset: division.grand_final_reset });
@@ -206,16 +214,25 @@ export async function updateMatchDetails(bracketId: string, code: string, detail
 export async function publishBracket(bracketId: string): Promise<BracketResult> {
   if (!Id.safeParse(bracketId).success) return fail("Invalid bracket");
   const sb = await adminClient();
-  const { bracket } = await load(sb, bracketId);
+  const { bracket, rows } = await load(sb, bracketId);
   if (bracket.status !== "draft") return fail("Already published");
+
+  // The draw is final, so no late entries. Closing first also waits for any sign-up still in
+  // progress (register_entry holds the division row lock), so the check below can't miss it.
+  const { error: closeError } = await sb.from("divisions").update({ registration_open: false }).eq("id", bracket.division_id);
+  if (closeError) return fail(closeError.message);
+
+  const entrants = await confirmedEntrants(sb, bracket.division_id);
+  if (!hasExactEntrants(toEngine(bracket.grand_final_reset, rows), entrants)) {
+    revalidate(bracket.division_id);
+    return fail("Entries changed since this draw, so it was not published. Registration is now closed. Re-shuffle to include everyone, then publish.");
+  }
 
   const { error } = await sb
     .from("brackets")
     .update({ status: "published", published_at: new Date().toISOString() })
     .eq("id", bracketId);
   if (error) return fail(error.message);
-  // the draw is final — no late entries
-  await sb.from("divisions").update({ registration_open: false }).eq("id", bracket.division_id);
   revalidate(bracket.division_id);
   return { ok: true };
 }

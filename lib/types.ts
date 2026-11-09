@@ -29,7 +29,6 @@ export interface Division {
   tournament_id: string;
   kind: DivisionKind;
   name: string;
-  slot_cap: number;
   confirmed_count: number;
   fee: number | string; // postgres numeric arrives as string
   registration_open: boolean;
@@ -97,11 +96,8 @@ export interface PublicEntrant {
   display_name: string;
 }
 
-export const slotsLeft = (d: Pick<Division, "slot_cap" | "confirmed_count">) =>
-  Math.max(0, d.slot_cap - d.confirmed_count);
-
 export const isAcceptingEntries = (t: Pick<Tournament, "status">, d: Division) =>
-  t.status === "open" && d.registration_open && slotsLeft(d) > 0;
+  t.status === "open" && d.registration_open;
 
 export function displayName(r: Pick<Registration, "player1_name" | "player2_name" | "team_name">): string {
   if (r.team_name) return r.team_name;

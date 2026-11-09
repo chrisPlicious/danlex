@@ -4,14 +4,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ActionState } from "@/components/action-form";
 import { adminClient } from "@/lib/auth";
+import { sendConfirmation } from "@/lib/send-confirmation";
 
 const fail = (error: string): ActionState => ({ ok: false, error });
 const done = (message: string): ActionState => ({ ok: true, message });
 
 function friendly(error: { message: string; code?: string }) {
-  if (error.message.includes("divisions_cap_not_below_confirmed")) {
-    return "That division is full. Raise its slot cap first.";
-  }
   if (error.code === "23505") return "This email already has a confirmed entry in that division.";
   if (error.code === "23503") {
     return "This entrant is placed in a bracket. Delete or redraw the bracket first (or record a walkover).";
@@ -52,7 +50,7 @@ export async function setRegistrationStatus(_: ActionState, fd: FormData): Promi
     .eq("id", id.data);
   if (error) return fail(friendly(error));
   revalidate();
-  return done(status.data === "confirmed" ? "Entry restored — slot taken." : "Entry removed — slot freed.");
+  return done(status.data === "confirmed" ? "Entry restored." : "Entry removed.");
 }
 
 export async function updateRegistration(_: ActionState, fd: FormData): Promise<ActionState> {
@@ -67,7 +65,7 @@ export async function updateRegistration(_: ActionState, fd: FormData): Promise<
   return done("Saved.");
 }
 
-/** Walk-in / manual entry. Ignores the open/closed switch but still respects the slot cap. */
+/** Walk-in / manual entry. Ignores the open/closed switch. */
 export async function addRegistration(_: ActionState, fd: FormData): Promise<ActionState> {
   const divisionId = z.uuid().safeParse(fd.get("division_id"));
   const parsed = Details.safeParse(Object.fromEntries(fd));
@@ -89,6 +87,14 @@ export async function addRegistration(_: ActionState, fd: FormData): Promise<Act
   if (error) return fail(friendly(error));
   revalidate();
   return done(`Added — code ${code}.`);
+}
+
+export async function resendConfirmation(_: ActionState, fd: FormData): Promise<ActionState> {
+  const id = z.uuid().safeParse(fd.get("id"));
+  if (!id.success) return fail("Invalid request");
+  await adminClient();
+  const sent = await sendConfirmation(id.data);
+  return sent.ok ? done("Confirmation email sent.") : fail(sent.error);
 }
 
 export async function deleteRegistration(_: ActionState, fd: FormData): Promise<ActionState> {

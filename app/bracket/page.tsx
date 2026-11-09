@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { LiveBracket } from "@/components/bracket/live-bracket";
 import { Podium } from "@/components/bracket/podium";
+import { ticketClass } from "@/components/club";
 import { Badge, cn, Skeleton } from "@/components/ui";
 import { describeFormat, getPodium } from "@/lib/bracket";
 import { toEngine } from "@/lib/bracket-db";
@@ -40,12 +41,8 @@ async function Content({ searchParams }: { searchParams: PageProps<"/bracket">["
             href={`/bracket?d=${x.id}`}
             aria-current={x.id === division.id ? "page" : undefined}
             className={cn(
-              "rounded-lg border px-4 py-2 text-sm font-bold transition",
-              x.id === division.id
-                ? x.kind === "singles"
-                  ? "border-electric bg-electric/20 text-chrome"
-                  : "border-magenta bg-magenta/20 text-chrome"
-                : "border-white/10 text-ink hover:text-chrome",
+              "rounded-md border px-4 py-2 text-sm font-bold transition",
+              x.id === division.id ? "border-fg bg-fg text-page" : "border-fg/40 text-ink hover:text-fg",
             )}
           >
             {x.name}
@@ -71,25 +68,25 @@ async function Content({ searchParams }: { searchParams: PageProps<"/bracket">["
           <LiveBracket bracketId={bundle.bracket.id} rows={bundle.matches} names={bundle.entrants} />
         </div>
       ) : (
-        <EntrantList divisionId={division.id} cap={division.slot_cap} />
+        <EntrantList divisionId={division.id} accent={division.kind === "singles" ? "electric" : "magenta"} />
       )}
     </>
   );
 }
 
-async function EntrantList({ divisionId, cap }: { divisionId: string; cap: number }) {
+async function EntrantList({ divisionId, accent }: { divisionId: string; accent: "electric" | "magenta" }) {
   const entrants = await getPublicEntrants(divisionId);
   return (
-    <div className="mt-8 rounded-2xl border border-white/10 bg-navy-900/70 p-6">
-      <p className="display text-2xl">Draw not made yet</p>
-      <p className="mt-1 text-ink">
-        The bracket is drawn at random once registration closes. {entrants.length} of {cap} slots filled.
+    <div className={ticketClass(accent, "mt-8")}>
+      <p className="display text-3xl text-pine-900">Draw not made yet</p>
+      <p className="mt-2">
+        The bracket is drawn at random once registration closes. {entrants.length} registered so far.
       </p>
       {entrants.length > 0 && (
         <ul className="mt-5 grid gap-2 sm:grid-cols-2">
           {entrants.map((e, i) => (
-            <li key={e.id} className="flex items-center gap-3 rounded-lg bg-white/5 px-3 py-2">
-              <span className="display w-6 text-ball">{i + 1}</span>
+            <li key={e.id} className="flex items-center gap-3 rounded bg-pine-900/10 px-3 py-2">
+              <span className="score w-6 text-pine-700">{i + 1}</span>
               <span className="font-semibold">{e.display_name}</span>
             </li>
           ))}

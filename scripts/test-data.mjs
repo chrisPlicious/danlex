@@ -1,6 +1,6 @@
-// Test entrants for trying out registration limits and bracket draws.
-//   node --env-file=.env.local scripts/test-data.mjs seed    fill every open division up to its slot cap
-//   node --env-file=.env.local scripts/test-data.mjs clear   remove test entrants and any bracket that uses them
+// Test entrants for trying out registration and bracket draws.
+//   node --env-file=.env.local scripts/test-data.mjs seed [count]   add count entrants to every open division (default 6)
+//   node --env-file=.env.local scripts/test-data.mjs clear          remove test entrants and any bracket that uses them
 // Test entrants use @example.com emails; real registrations are never touched.
 import { createClient } from "@supabase/supabase-js";
 
@@ -28,21 +28,24 @@ const RECEIPT = Buffer.from(
 
 const slug = (name) => name.toLowerCase().replace(/[^a-z]+/g, ".");
 
-async function seed() {
+async function seed(count) {
+  if (!Number.isInteger(count) || count < 1) {
+    console.error("Count must be a whole number of at least 1.");
+    process.exit(1);
+  }
   const { data: divisions, error } = await sb
     .from("divisions")
-    .select("id, name, kind, slot_cap, confirmed_count, registration_open")
+    .select("id, name, kind, confirmed_count, registration_open")
     .order("sort_order");
   if (error) throw error;
 
   for (const d of divisions) {
-    const open = d.slot_cap - d.confirmed_count;
-    if (!d.registration_open || open <= 0) {
-      console.log(`${d.name}: ${d.confirmed_count}/${d.slot_cap} — ${open <= 0 ? "already full" : "registration closed"}, skipped`);
+    if (!d.registration_open) {
+      console.log(`${d.name}: registration closed, skipped`);
       continue;
     }
     let added = 0;
-    for (let i = 0; i < open; i++) {
+    for (let i = 0; i < count; i++) {
       const n = d.confirmed_count + i;
       const p1 = PLAYERS[(n * (d.kind === "doubles" ? 2 : 1)) % PLAYERS.length];
       const p2 = d.kind === "doubles" ? PLAYERS[(n * 2 + 1) % PLAYERS.length] : null;
@@ -59,7 +62,7 @@ async function seed() {
         p_player2_email: p2 ? `${slug(p2)}.${d.kind}${n}@example.com` : null,
         p_team_name: d.kind === "doubles" ? TEAMS[n % TEAMS.length] : null,
         p_payment_proof_path: path,
-        p_payment_ref: `TEST-${String(n + 1).padStart(4, "0")}`,
+        p_payment_ref: String(100000 + n),
       });
       if (rErr) {
         await sb.storage.from("payment-proofs").remove([path]);
@@ -68,7 +71,7 @@ async function seed() {
       }
       added++;
     }
-    console.log(`${d.name}: added ${added} test ${d.kind === "doubles" ? "teams" : "players"} → ${d.confirmed_count + added}/${d.slot_cap}`);
+    console.log(`${d.name}: added ${added} test ${d.kind === "doubles" ? "teams" : "players"} → ${d.confirmed_count + added} registered`);
   }
 }
 
@@ -92,9 +95,9 @@ async function clear() {
 }
 
 const command = process.argv[2];
-if (command === "seed") await seed();
+if (command === "seed") await seed(Number(process.argv[3] ?? 6));
 else if (command === "clear") await clear();
 else {
-  console.error("Usage: scripts/test-data.mjs seed|clear");
+  console.error("Usage: scripts/test-data.mjs seed [count] | clear");
   process.exit(1);
 }

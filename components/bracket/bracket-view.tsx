@@ -104,7 +104,9 @@ export function BracketView({
   const panelProps = { names, meta, hints, selected, onSelect };
   return (
     <div className="space-y-8">
-      <Panel title="Winners bracket" tone="electric" placed={winners} lastRound={wRounds} {...panelProps} />
+      {winners.length > 0 && (
+        <Panel title="Winners bracket" tone="electric" placed={winners} lastRound={wRounds} {...panelProps} />
+      )}
       {losers.length > 0 && (
         <Panel title="Losers bracket" tone="magenta" placed={losers} lastRound={lRounds} {...panelProps} />
       )}
@@ -156,33 +158,19 @@ function Panel({
   }
 
   return (
-    <section>
-      <h3
-        className={cn(
-          "display mb-3 flex items-center gap-2 text-xl",
-          tone === "electric" ? "text-electric-soft" : "text-magenta-soft",
-        )}
-      >
-        <span className={cn("h-5 w-1.5 -skew-x-12 rounded-sm", tone === "electric" ? "bg-electric" : "bg-magenta")} />
-        {title}
-      </h3>
-      <div className="-mx-4 overflow-x-auto px-4 pb-2">
+    <section className={cn("rounded-md border-t-[10px] bg-panel", tone === "electric" ? "border-t-electric" : "border-t-magenta")}>
+      <h3 className="display px-4 pt-4 text-2xl">{title}</h3>
+      <div className="overflow-x-auto p-4">
         <div className="relative" style={{ width, height }}>
           <svg className="pointer-events-none absolute inset-0" width={width} height={height} aria-hidden>
             {lines.map((d, i) => (
-              <path
-                key={i}
-                d={d}
-                fill="none"
-                stroke={tone === "electric" ? "rgb(91 140 255 / 0.45)" : "rgb(255 106 172 / 0.45)"}
-                strokeWidth={2}
-              />
+              <path key={i} d={d} fill="none" stroke="var(--color-fg)" strokeOpacity={0.55} strokeWidth={2} />
             ))}
           </svg>
           {[...headers].map(([col, label]) => (
             <p
               key={col}
-              className="absolute top-0 text-xs font-bold uppercase tracking-wider text-ink"
+              className="absolute top-0 text-sm font-semibold text-ink"
               style={{ left: col * STRIDE_X, width: CARD_W }}
             >
               {label}
@@ -241,22 +229,22 @@ function MatchCard({
       type={clickable ? "button" : undefined}
       onClick={clickable ? () => onSelect!(m.code) : undefined}
       className={cn(
-        "absolute flex flex-col overflow-hidden rounded-lg border text-left transition",
-        isGF ? "border-ball/50 bg-navy-800" : "border-white/10 bg-navy-900",
+        "on-board absolute flex flex-col overflow-hidden rounded border bg-board text-left transition",
+        isGF ? "border-ball" : "border-fg/15",
         empty && "opacity-25",
-        isBye && !empty && "opacity-55",
+        isBye && !empty && "opacity-55 light:opacity-75",
         m.status === "live" && "border-court shadow-[0_0_0_1px_var(--color-court),0_0_24px_-4px_var(--color-court)]",
         selected && "ring-2 ring-ball",
-        clickable && "hover:border-ball/60",
+        clickable && "hover:border-ball",
       )}
       style={style}
     >
-      <div className="flex h-[18px] items-center justify-between bg-white/5 px-2 text-[10px] font-bold uppercase tracking-wider text-ink">
+      <div className="flex h-[18px] items-center justify-between bg-fg/5 px-2 text-[10px] font-bold uppercase tracking-wider text-ink">
         <span>{m.code}</span>
         <span className="flex items-center gap-1.5">
           {meta?.court && <span>Court {meta.court}</span>}
           {m.status === "live" && <span className="animate-pulse-live text-court">● Live</span>}
-          {m.walkover && <span className="text-ball">W/O</span>}
+          {m.walkover && <span className="text-accent">W/O</span>}
           {isBye && !empty && <span>Bye</span>}
         </span>
       </div>
@@ -268,18 +256,23 @@ function MatchCard({
           <div
             key={slot}
             className={cn(
-              "flex flex-1 items-center justify-between gap-2 border-l-[3px] px-2 text-sm",
-              slot === 1 && "border-b border-b-white/5",
-              won ? "border-l-ball bg-ball/10 font-bold text-chrome" : "border-l-transparent",
+              "flex min-h-0 flex-1 items-center justify-between gap-2 border-l-[3px] px-2 text-sm",
+              slot === 1 && "border-b border-b-fg/10",
+              won ? "border-l-ball bg-ball/10 font-bold text-fg" : "border-l-transparent",
               lost && "text-ink/70",
               muted && "text-ink/60 italic",
             )}
           >
             <span className="truncate">{text}</span>
-            <span className="flex shrink-0 gap-1 font-mono text-xs tabular-nums">
+            <span className="flex shrink-0 gap-1">
               {m.games.map((g, i) => (
                 <Fragment key={i}>
-                  <span className={cn((slot === 1 ? g.p1 > g.p2 : g.p2 > g.p1) ? "text-ball" : "text-ink")}>
+                  <span
+                    className={cn(
+                      "score rounded-sm bg-black px-1.5 py-0.5 text-sm",
+                      (slot === 1 ? g.p1 > g.p2 : g.p2 > g.p1) ? "text-accent" : "text-ink",
+                    )}
+                  >
                     {slot === 1 ? g.p1 : g.p2}
                   </span>
                 </Fragment>

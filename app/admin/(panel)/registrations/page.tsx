@@ -10,6 +10,7 @@ import { displayName, type Division, type Registration } from "@/lib/types";
 import {
   addRegistration,
   deleteRegistration,
+  resendConfirmation,
   setRegistrationStatus,
   updateRegistration,
 } from "../../actions/registrations";
@@ -84,10 +85,10 @@ async function RegistrationsContent({
         </FilterLink>
         {divisions.map((d) => (
           <FilterLink key={d.id} href={filterHref({ division: d.id })} active={division?.id === d.id}>
-            {d.name} ({d.confirmed_count}/{d.slot_cap})
+            {d.name} ({d.confirmed_count})
           </FilterLink>
         ))}
-        <span className="mx-2 w-px bg-white/10" />
+        <span className="mx-2 w-px bg-fg/10" />
         <FilterLink href={filterHref({ status: undefined })} active={!status}>
           Any status
         </FilterLink>
@@ -98,9 +99,9 @@ async function RegistrationsContent({
         ))}
       </div>
 
-      <details className="rounded-2xl border border-dashed border-white/20 p-5">
-        <summary className="cursor-pointer font-bold text-ball">+ Add walk-in entry</summary>
-        <p className="mt-2 text-sm text-ink">For cash or on-site payments. Still counts against the slot cap.</p>
+      <details className="rounded-2xl border border-dashed border-fg/20 p-5">
+        <summary className="cursor-pointer font-bold text-accent">+ Add walk-in entry</summary>
+        <p className="mt-2 text-sm text-ink">For cash or on-site payments. Add walk-ins before you publish the draw so they make the bracket.</p>
         <ActionForm action={addRegistration} className="mt-4 grid gap-4 md:grid-cols-3">
           <Field label="Division">
             <Select name="division_id" defaultValue={division?.id ?? divisions[0]?.id} required>
@@ -142,7 +143,7 @@ function FilterLink({ href, active, children }: { href: string; active: boolean;
       href={href}
       className={cn(
         "rounded-lg border px-3 py-1.5 text-sm font-semibold capitalize transition",
-        active ? "border-ball bg-ball/10 text-ball" : "border-white/10 text-ink hover:text-chrome",
+        active ? "border-ball bg-ball/10 text-accent" : "border-fg/10 text-ink hover:text-fg",
       )}
     >
       {children}
@@ -192,10 +193,10 @@ function RegistrationRow({ r, division, proof }: { r: Registration; division?: D
         {proof ? (
           <a href={proof} target="_blank" rel="noreferrer" className="shrink-0" title="Open payment proof">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={proof} alt="Payment proof" className="size-20 rounded-lg border border-white/10 object-cover" />
+            <img src={proof} alt="Payment proof" className="size-20 rounded-lg border border-fg/10 object-cover" />
           </a>
         ) : (
-          <div className="grid size-20 shrink-0 place-items-center rounded-lg border border-dashed border-white/15 text-center text-[10px] font-bold uppercase text-ink">
+          <div className="grid size-20 shrink-0 place-items-center rounded-lg border border-dashed border-fg/15 text-center text-[10px] font-bold uppercase text-ink">
             {r.source === "admin" ? "Walk-in" : "No proof"}
           </div>
         )}
@@ -206,10 +207,10 @@ function RegistrationRow({ r, division, proof }: { r: Registration; division?: D
             {division && <Badge tone={division.kind === "singles" ? "electric" : "magenta"}>{division.name}</Badge>}
           </div>
           <p className="mt-1 text-sm text-ink">
-            <span className="font-mono text-ball">{r.confirmation_code}</span> · {dateTime(r.created_at)}
+            <span className="font-mono text-accent">{r.confirmation_code}</span> · {dateTime(r.created_at)}
             {r.payment_ref && <> · ref {r.payment_ref}</>}
           </p>
-          <p className="mt-1 text-sm break-words text-chrome/90">
+          <p className="mt-1 text-sm break-words text-fg/90">
             {r.player1_name} · {r.player1_phone} · {r.player1_email}
             {r.player2_name && (
               <>
@@ -220,12 +221,20 @@ function RegistrationRow({ r, division, proof }: { r: Registration; division?: D
               </>
             )}
           </p>
-          {r.admin_notes && <p className="mt-1 text-sm text-ball/80">Note: {r.admin_notes}</p>}
+          {r.admin_notes && <p className="mt-1 text-sm text-accent/80">Note: {r.admin_notes}</p>}
         </div>
         <div className="flex flex-wrap gap-2">
+          {confirmed && (
+            <ActionForm action={resendConfirmation}>
+              <input type="hidden" name="id" value={r.id} />
+              <SubmitButton variant="secondary" size="sm" pendingLabel="Sending…">
+                Resend email
+              </SubmitButton>
+            </ActionForm>
+          )}
           <ActionForm
             action={setRegistrationStatus}
-            confirm={confirmed ? "Reject this entry? Their slot will be freed." : undefined}
+            confirm={confirmed ? "Reject this entry? It will no longer count as confirmed." : undefined}
           >
             <input type="hidden" name="id" value={r.id} />
             <input type="hidden" name="status" value={confirmed ? "rejected" : "confirmed"} />
@@ -241,8 +250,8 @@ function RegistrationRow({ r, division, proof }: { r: Registration; division?: D
           </ActionForm>
         </div>
       </div>
-      <details className="mt-3 border-t border-white/5 pt-3">
-        <summary className="cursor-pointer text-sm font-bold text-ink hover:text-chrome">Edit details</summary>
+      <details className="mt-3 border-t border-fg/5 pt-3">
+        <summary className="cursor-pointer text-sm font-bold text-ink hover:text-fg">Edit details</summary>
         <ActionForm action={updateRegistration} className="mt-3 grid gap-3 md:grid-cols-3">
           <input type="hidden" name="id" value={r.id} />
           <DetailFields r={r} />

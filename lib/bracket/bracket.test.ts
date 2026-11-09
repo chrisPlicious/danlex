@@ -8,6 +8,7 @@ import {
   generateDoubleElimination,
   getChampion,
   getPodium,
+  hasExactEntrants,
   loserId,
   mulberry32,
   previewUndo,
@@ -162,6 +163,12 @@ describe("grand final reset", () => {
     expect(findMatch(b, GF2).status).toBe("not_needed");
     expect(getChampion(b)).toBe("a");
   });
+
+  it("reports no result when the match rows are missing", () => {
+    const b: Bracket = { grandFinalReset: true, matches: [] };
+    expect(getChampion(b)).toBeNull();
+    expect(getPodium(b)).toEqual({ first: null, second: null, third: null });
+  });
 });
 
 describe("undo and edits", () => {
@@ -233,6 +240,31 @@ describe("undo and edits", () => {
   it("refuses to score a match that is not ready", () => {
     const b = generateDoubleElimination(ids(4), { grandFinalReset: true });
     expect(() => recordResult(b, "W2-1", win1, DEFAULT_FORMAT)).toThrow(BracketError);
+  });
+});
+
+describe("hasExactEntrants", () => {
+  const b = generateDoubleElimination(ids(5), { grandFinalReset: true });
+
+  it("accepts the same entrants in any order", () => {
+    expect(hasExactEntrants(b, ids(5))).toBe(true);
+    expect(hasExactEntrants(b, [...ids(5)].reverse())).toBe(true);
+  });
+
+  it("spots someone who registered after the draw", () => {
+    expect(hasExactEntrants(b, [...ids(5), "late"])).toBe(false);
+  });
+
+  it("spots someone removed after the draw", () => {
+    expect(hasExactEntrants(b, ids(4))).toBe(false);
+  });
+
+  it("spots a swap of one entrant for another", () => {
+    expect(hasExactEntrants(b, [...ids(4), "other"])).toBe(false);
+  });
+
+  it("refuses a bracket with no matches", () => {
+    expect(hasExactEntrants({ grandFinalReset: true, matches: [] }, ids(5))).toBe(false);
   });
 });
 

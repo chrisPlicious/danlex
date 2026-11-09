@@ -8,7 +8,7 @@ import { RegistrationWizard } from "./wizard";
 export default function DivisionRegisterPage({ params }: PageProps<"/register/[divisionId]">) {
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:py-14">
-      <Link href="/register" className="text-sm font-semibold text-ink hover:text-chrome">
+      <Link href="/register" className="text-sm font-semibold text-ink hover:text-fg">
         ← All divisions
       </Link>
       <h1 className="display mt-3 mb-8 text-5xl">Register</h1>

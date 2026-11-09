@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { browserClient } from "@/lib/supabase/browser";
 import type { Division } from "@/lib/types";
 
-/** Keeps slot counters current via Supabase Realtime (divisions rows are public-readable). */
+/** Keeps entry counts current via Supabase Realtime (divisions rows are public-readable). */
 export function useLiveDivisions(initial: Division[]): Division[] {
   const [divisions, setDivisions] = useState(initial);
   const tournamentId = initial[0]?.tournament_id;

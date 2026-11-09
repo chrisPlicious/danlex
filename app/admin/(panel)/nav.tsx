@@ -24,7 +24,7 @@ export function NavLinks({ path }: { path?: string }) {
             aria-current={active ? "page" : undefined}
             className={cn(
               "rounded-lg px-3 py-2 text-sm font-bold transition",
-              active ? "bg-ball text-navy-950" : "text-ink hover:bg-white/5 hover:text-chrome",
+              active ? "bg-ball text-pine-950" : "text-ink hover:bg-fg/5 hover:text-fg",
             )}
           >
             {l.label}

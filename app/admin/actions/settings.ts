@@ -23,15 +23,20 @@ function revalidateAll() {
 // ---------------------------------------------------------------------------
 
 export async function signIn(_: ActionState, fd: FormData): Promise<ActionState> {
-  const email = String(fd.get("email") ?? "").trim();
   const password = String(fd.get("password") ?? "");
-  if (!email || !password) return fail("Enter your email and password.");
+  if (!password) return fail("Enter the admin password.");
+
+  // There is one admin account, so its email comes from server config rather than the form.
+  // Database rules still rely on this being a real Supabase session.
+  const email = process.env.ADMIN_EMAIL;
+  if (!email) return fail("Admin sign-in isn't set up. Set ADMIN_EMAIL on the server.");
 
   const sb = await createSessionClient();
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if (error?.status === 429) return fail("Too many tries. Wait a few minutes, then try again.");
   if (error || !isAdminUser(data.user)) {
     await sb.auth.signOut();
-    return fail("Invalid credentials or not an admin account.");
+    return fail("Wrong password.");
   }
   redirect("/admin");
 }
@@ -127,7 +132,6 @@ const DivisionInput = z.object({
   tournament_id: z.uuid(),
   kind: z.enum(["singles", "doubles"]),
   name: z.string().trim().min(2).max(60),
-  slot_cap: z.coerce.number().int().min(2).max(128),
   fee: z.coerce.number().min(0).max(1_000_000),
   sort_order: z.coerce.number().int().min(0).max(99).default(0),
   registration_open: z.literal("on").optional(),
@@ -153,9 +157,6 @@ export async function saveDivision(_: ActionState, fd: FormData): Promise<Action
     ? await sb.from("divisions").update(row).eq("id", id)
     : await sb.from("divisions").insert(row);
   if (error) {
-    if (error.message.includes("divisions_cap_not_below_confirmed")) {
-      return fail("Slot cap can't be lower than the number of confirmed entries.");
-    }
     if (error.code === "23505") return fail("A division with that name already exists.");
     return fail(error.message);
   }

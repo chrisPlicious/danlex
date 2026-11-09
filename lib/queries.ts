@@ -78,10 +78,11 @@ async function loadBracket(sb: Client, divisionId: string): Promise<BracketBundl
   };
 }
 
-/** Published bracket for the public view (RLS hides drafts). */
+/** Published bracket for the public view (RLS hides drafts). One with no match rows has nothing to show. */
 export async function getPublicBracket(divisionId: string) {
   await connection();
-  return loadBracket(createPublicClient(), divisionId);
+  const bundle = await loadBracket(createPublicClient(), divisionId);
+  return bundle?.matches.length ? bundle : null;
 }
 
 export async function getAdminBracket(divisionId: string) {

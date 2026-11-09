@@ -1,20 +1,21 @@
 # Danlex Pickle Court — Tournament site
 
-Registration (Singles / Doubles), QR payment with proof upload, live slot counters, and randomized
-double-elimination brackets (winners + losers bracket, grand final with reset). Next.js 16 + Supabase.
+Registration (Singles / Doubles) with no limit on entries, QR payment with proof upload, live entry counts, and
+randomized double-elimination brackets sized from whoever registers (winners + losers bracket, grand final with
+reset). Next.js 16 + Supabase.
 
 ## Pages
 
 | Route | What |
 |---|---|
-| `/` | Landing, live slot counters per division |
-| `/register` → `/register/[divisionId]` | Pick division → details → pay via QR → upload proof → slot confirmed |
+| `/` | Landing, live entry counts per division |
+| `/register` → `/register/[divisionId]` | Pick division → details → pay via QR → enter last 6 digits of reference → upload proof → entry confirmed |
 | `/register/success/[code]` | Confirmation code |
 | `/bracket` | Public live bracket per division |
 | `/admin` | Dashboard (organisers only) |
-| `/admin/registrations` | Review proofs, reject/restore (frees/takes slot), edit, walk-ins, delete, CSV export |
+| `/admin/registrations` | Review proofs, reject/restore, edit, walk-ins, delete, CSV export |
 | `/admin/brackets/[divisionId]` | Draw (random), re-shuffle, swap, publish, score, walkover, undo, courts, live flag |
-| `/admin/settings` | Tournament info, payment QR upload, divisions (slot cap, fee, match format, GF reset) |
+| `/admin/settings` | Tournament info, payment QR upload, divisions (registration switch, fee, match format, GF reset) |
 
 ## Setup
 
@@ -24,23 +25,31 @@ double-elimination brackets (winners + losers bracket, grand final with reset). 
 3. **Database** — apply `supabase/migrations/*.sql` then `supabase/seed.sql`
    (`npx supabase db push` on a linked project, or paste into the SQL editor).
 4. **Admin account** — set `ADMIN_EMAIL` / `ADMIN_PASSWORD` in `.env.local`, then `npm run admin:create`.
-5. `npm run dev`
+   There is one admin, and `/admin/login` only asks for the password, so `ADMIN_EMAIL` must also be set wherever
+   the site runs. To change the password, update `ADMIN_PASSWORD` and run `npm run admin:create` again.
+5. **Confirmation emails** — turn on 2-Step Verification for a Gmail account, create an
+   [App Password](https://myaccount.google.com/apppasswords), and set `GMAIL_USER` / `GMAIL_APP_PASSWORD`.
+   Entries save normally without them; emails just don't go out. Gmail allows about 500 a day.
+   **Admin → Registrations → Resend email** sends one again and shows any error, so it doubles as a setup test.
+6. `npm run dev`
 
 The hero logo lives at `public/brand/danlex-logo.webp` (transparent background); replace that file to update it.
 
-Change the slot cap any time in **Admin → Tournament & divisions** (default 6 per division).
-
 ## Test data
 
-- `npm run testdata:seed` fills every open division to its slot cap with test entrants (`@example.com` emails).
+- `npm run testdata:seed` adds 6 test entrants (`@example.com` emails) to every open division. Pass a count for more: `npm run testdata:seed -- 20`.
 - `npm run testdata:clear` removes them, plus any bracket that uses them, and reopens registration.
 - `npm run test:integration` runs the database tests against the project in `.env.local` and cleans up after itself.
 
-## How slots stay correct
+## How registration stays correct
 
-`register_entry()` (Postgres, service role only) locks the division row, re-checks open/full, then inserts.
-`divisions.confirmed_count` is maintained by a trigger and guarded by `CHECK (slot_cap >= confirmed_count)`,
-so two people can never take the last slot, and an admin restore into a full division is refused.
+Divisions have no entry limit. Registration runs until an organiser unticks it in **Admin → Tournament & divisions**,
+or publishes the bracket.
+
+`register_entry()` (Postgres, service role only) locks the division row, re-checks that it's open, then inserts.
+`divisions.confirmed_count` is maintained by a trigger.
+Publishing closes registration first, then refuses if confirmed entries no longer match the draw, so nobody who paid
+after the draw gets left out. Re-shuffle to include them, then publish.
 Payment proofs go straight from the browser to a private bucket through a one-time signed upload URL.
 
 ## Bracket engine
@@ -48,6 +57,7 @@ Payment proofs go straight from the browser to a private bucket through a one-ti
 `lib/bracket/` is a pure TypeScript double-elimination engine (tested with `npm test`):
 
 - N entrants → bracket of the next power of two; byes go to the top seeds and auto-advance.
+- A draw can hold up to 256 entrants. Beyond that a bracket needs more than Supabase's default 1,000 rows per read.
 - Winners bracket: log2(P) rounds. Losers bracket: 2·(log2(P)−1) rounds, alternating
   "minor" rounds (LB survivors play each other) and "major" rounds (survivors meet players dropping from the WB,
   in reversed order on alternate rounds to avoid quick rematches).

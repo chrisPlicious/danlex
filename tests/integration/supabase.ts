@@ -79,12 +79,19 @@ afterAll(async () => {
   if (!process.env.KEEP_TEST_DATA) await cleanup();
 });
 
-describe("registration and slots", () => {
-  it("fills to the cap under concurrency and refuses the rest", async () => {
+describe("registration", () => {
+  it("takes every entry under concurrency, with no limit", async () => {
     const results = await Promise.all([1, 2, 3, 4, 5, 6, 7].map(register));
-    expect(results.filter((r) => !r.error)).toHaveLength(5);
-    expect(results.filter((r) => r.error?.message.includes("DIVISION_FULL"))).toHaveLength(2);
-    expect(await count(singlesId)).toBe(5);
+    expect(results.filter((r) => r.error)).toEqual([]);
+    expect(await count(singlesId)).toBe(7);
+  });
+
+  it("refuses entries while registration is closed", async () => {
+    await service.from("divisions").update({ registration_open: false }).eq("id", singlesId);
+    const closed = await register(8);
+    await service.from("divisions").update({ registration_open: true }).eq("id", singlesId);
+    expect(closed.error?.message).toContain("REGISTRATION_CLOSED");
+    expect(await count(singlesId)).toBe(7);
   });
 
   it("drops partner fields on singles entries", async () => {
@@ -110,11 +117,11 @@ describe("registration and slots", () => {
     expect(rpc.error).not.toBeNull();
 
     const { data: entrants } = await anon.rpc("get_public_entrants", { p_division_id: singlesId });
-    expect(entrants).toHaveLength(5);
+    expect(entrants).toHaveLength(7);
     expect(Object.keys(entrants![0]).sort()).toEqual(["created_at", "display_name", "id"]);
   });
 
-  it("admin reject frees a slot; restoring into a full division is refused", async () => {
+  it("keeps the count right through reject, walk-in, and restore", async () => {
     const { data: regs } = await admin
       .from("registrations")
       .select("id")
@@ -124,7 +131,7 @@ describe("registration and slots", () => {
     const target = regs![0].id;
 
     await admin.from("registrations").update({ status: "rejected" }).eq("id", target);
-    expect(await count(singlesId)).toBe(4);
+    expect(await count(singlesId)).toBe(6);
 
     const walkIn = await admin
       .from("registrations")
@@ -139,14 +146,14 @@ describe("registration and slots", () => {
       .select("id")
       .single();
     expect(walkIn.error).toBeNull();
-    expect(await count(singlesId)).toBe(5);
+    expect(await count(singlesId)).toBe(7);
 
     const restore = await admin.from("registrations").update({ status: "confirmed" }).eq("id", target);
-    expect(restore.error?.message).toContain("divisions_cap_not_below_confirmed");
+    expect(restore.error).toBeNull();
+    expect(await count(singlesId)).toBe(8);
 
     await admin.from("registrations").delete().eq("id", walkIn.data!.id);
-    await admin.from("registrations").update({ status: "confirmed" }).eq("id", target);
-    expect(await count(singlesId)).toBe(5);
+    expect(await count(singlesId)).toBe(7);
   });
 });
 
@@ -178,8 +185,8 @@ describe("bracket lifecycle", () => {
 
     const { rows } = await load();
     const w1 = rows.filter((m) => m.side === "W" && m.round === 1);
-    expect(w1.filter((m) => m.status === "bye")).toHaveLength(3);
-    expect(w1.filter((m) => m.status === "ready")).toHaveLength(1);
+    expect(w1.filter((m) => m.status === "bye")).toHaveLength(1);
+    expect(w1.filter((m) => m.status === "ready")).toHaveLength(3);
     expect((await anon.from("matches").select("id").eq("bracket_id", bracketId)).data).toEqual([]);
   });
 
@@ -207,7 +214,7 @@ describe("bracket lifecycle", () => {
     const engine = toEngine(true, rows);
     expect(findMatch(engine, GF2).status).toBe("completed");
     expect(getChampion(engine)).not.toBeNull();
-    expect(rows.filter((m) => m.status === "completed")).toHaveLength(2 * 5 - 2 + 1);
+    expect(rows.filter((m) => m.status === "completed")).toHaveLength(2 * 7 - 2 + 1);
   });
 
   it("rejects stale saves and supports undo", async () => {

@@ -158,6 +158,7 @@ export function BracketAdmin({ division, bundle }: { division: Division; bundle:
 
       {error && <Alert>{error}</Alert>}
       {notice && <Alert tone="court">{notice}</Alert>}
+      {engine.matches.length === 0 && <Alert>This bracket has no matches left. Delete it, then draw again.</Alert>}
 
       <Podium podium={getPodium(engine)} names={bundle.entrants} />
 
@@ -197,7 +198,7 @@ export function BracketAdmin({ division, bundle }: { division: Division; bundle:
         />
       )}
 
-      <p className="text-sm text-ink">Tap a match to score it, set a court, or undo a result.</p>
+      {engine.matches.length > 0 && <p className="text-sm text-ink">Tap a match to score it, set a court, or undo a result.</p>}
       <BracketView matches={engine.matches} names={bundle.entrants} meta={meta} selected={selected} onSelect={setSelected} />
     </div>
   );
@@ -330,7 +331,7 @@ function MatchPanel({
               </div>
             ))}
           </div>
-          {check && !check.ok && <p className="text-sm font-semibold text-ball">{check.error}</p>}
+          {check && !check.ok && <p className="text-sm font-semibold text-accent">{check.error}</p>}
           {check?.ok && (
             <p className="text-sm font-semibold text-court">Winner: {name(check.winner)}</p>
           )}
@@ -353,7 +354,7 @@ function MatchPanel({
         </div>
       )}
 
-      <div className={cn("flex flex-wrap items-end gap-3 border-t border-white/10 pt-4")}>
+      <div className={cn("flex flex-wrap items-end gap-3 border-t border-fg/10 pt-4")}>
         <Field label="Court">
           <Input value={court} onChange={(e) => setCourt(e.target.value)} className="h-9 w-28" maxLength={20} />
         </Field>

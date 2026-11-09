@@ -10,12 +10,12 @@ export const metadata: Metadata = { title: { default: "Admin", template: "%s · 
 export default function AdminLayout({ children }: LayoutProps<"/admin">) {
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-fg/10 pb-4">
         <Suspense fallback={<NavLinks />}>
           <AdminNav />
         </Suspense>
         <form action={signOut}>
-          <button className="text-sm font-semibold text-ink hover:text-chrome">Sign out</button>
+          <button className="text-sm font-semibold text-ink hover:text-fg">Sign out</button>
         </form>
       </div>
       <Suspense fallback={<Skeleton className="h-96" />}>

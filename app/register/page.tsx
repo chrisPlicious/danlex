@@ -9,9 +9,9 @@ export const metadata: Metadata = { title: "Register" };
 export default function RegisterPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:py-14">
-      <p className="text-sm font-bold uppercase tracking-[0.2em] text-electric-soft">Step 1 of 4</p>
+      <p className="text-sm font-bold text-accent">Step 1 of 4</p>
       <h1 className="display mt-2 text-5xl">Choose your division</h1>
-      <p className="mt-3 text-ink">Slots update live. Once a division is full, registration closes automatically.</p>
+      <p className="mt-3 text-ink">Entries update live. Registration stays open until the organisers close it.</p>
       <div className="mt-8">
         <Suspense
           fallback={

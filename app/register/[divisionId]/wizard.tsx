@@ -3,12 +3,14 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Alert, Badge, Button, cn, Field, Input, SlotMeter } from "@/components/ui";
+import { ticketClass } from "@/components/club";
+import { Alert, Button, cn, EntryCount, Field, Input } from "@/components/ui";
 import { useLiveDivisions } from "@/components/use-live-divisions";
 import { compressImage } from "@/lib/compress-image";
 import { money } from "@/lib/format";
+import { isPaymentRef, PAYMENT_REF_ERROR, pastedPaymentRef, typedPaymentRef } from "@/lib/payment-ref";
 import { browserClient } from "@/lib/supabase/browser";
-import { isAcceptingEntries, slotsLeft, type Division, type Tournament } from "@/lib/types";
+import { isAcceptingEntries, type Division, type Tournament } from "@/lib/types";
 import { completeRegistration, startProofUpload, type RegistrationInput } from "../actions";
 
 type Details = Omit<RegistrationInput, "divisionId" | "kind" | "proofPath">;
@@ -69,6 +71,12 @@ export function RegistrationWizard({
     return Object.keys(errs).length === 0;
   }
 
+  function validatePayment(): boolean {
+    const valid = isPaymentRef(details.paymentRef);
+    setFieldErrors(valid ? {} : { paymentRef: PAYMENT_REF_ERROR });
+    return valid;
+  }
+
   function submit() {
     if (!/^\S+@\S+\.\S+$/.test(details.player1Email.trim())) {
       return setFieldErrors({ player1Email: "Enter the email where we should send your confirmation" });
@@ -91,7 +99,7 @@ export function RegistrationWizard({
           .uploadToSignedUrl(ticket.path, ticket.token, blob, { contentType: "image/jpeg" });
         if (upErr) return setError("Upload failed. Check your connection and try again.");
 
-        setPhase("Locking your slot…");
+        setPhase("Confirming your entry…");
         const result = await completeRegistration({
           ...details,
           divisionId: division.id,
@@ -101,8 +109,10 @@ export function RegistrationWizard({
         if (!result.ok) {
           if ("fields" in result && result.fields) {
             setFieldErrors(result.fields);
-            // email lives on this step; anything else sends them back to the details form
-            if (Object.keys(result.fields).some((f) => f !== "player1Email")) setStep(0);
+            // email lives on this step and the reference on the one before; anything else is on the details form
+            const fields = Object.keys(result.fields);
+            if (fields.some((f) => f !== "player1Email" && f !== "paymentRef")) setStep(0);
+            else if (fields.includes("paymentRef")) setStep(1);
           }
           return setError(result.error);
         }
@@ -126,11 +136,11 @@ export function RegistrationWizard({
               key={label}
               aria-current={i === step ? "step" : undefined}
               className={cn(
-                "flex flex-1 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold",
-                i === step ? "border-ball bg-ball/10 text-ball" : i < step ? "border-court/40 text-court" : "border-white/10 text-ink",
+                "flex flex-1 items-center gap-2 rounded-md px-3 py-2 text-sm font-bold",
+                i === step ? "bg-ball text-pine-950" : i < step ? "bg-panel text-court" : "bg-panel text-ink",
               )}
             >
-              <span className="display text-lg">{i + 1}</span>
+              <span className="score text-lg">{i + 1}</span>
               {label}
             </li>
           ))}
@@ -138,15 +148,11 @@ export function RegistrationWizard({
 
         {!accepting && (
           <div className="mb-6">
-            <Alert>
-              {slotsLeft(division) === 0
-                ? "All slots in this division are taken. Registration is closed."
-                : "Registration for this division is closed."}
-            </Alert>
+            <Alert>Registration for this division is closed.</Alert>
           </div>
         )}
 
-        <div className="rounded-2xl border border-white/10 bg-navy-900/70 p-5 sm:p-6">
+        <div className="rounded-md bg-panel p-5 sm:p-6">
           {step === 0 && (
             <form
               noValidate
@@ -167,8 +173,8 @@ export function RegistrationWizard({
               </fieldset>
 
               {doubles && (
-                <fieldset className="space-y-4 border-t border-white/10 pt-5">
-                  <legend className="display mb-2 text-2xl">Partner</legend>
+                <fieldset className="space-y-4 border-t border-fg/20 pt-5">
+                  <legend className="display mb-2 pr-3 text-2xl">Partner</legend>
                   <Field label="Partner's full name" error={fieldErrors.player2Name}>
                     <Input value={details.player2Name ?? ""} onChange={set("player2Name")} />
                   </Field>
@@ -209,7 +215,7 @@ export function RegistrationWizard({
             <div className="space-y-5">
               <h2 className="display text-2xl">Scan &amp; pay</h2>
               <div className="grid items-center gap-6 sm:grid-cols-[14rem_1fr]">
-                <div className="rounded-2xl bg-white p-3 shadow-[0_0_0_4px_var(--color-ball)]">
+                <div className="rounded-md bg-white p-3 shadow-[0_0_0_4px_var(--color-ball)]">
                   <Image
                     src={qrUrl}
                     alt="Payment QR code"
@@ -221,21 +227,43 @@ export function RegistrationWizard({
                 </div>
                 <div className="space-y-3">
                   <p className="text-sm uppercase tracking-wider text-ink">Amount due</p>
-                  <p className="display text-5xl text-flame">{money(division.fee, tournament.currency)}</p>
+                  <p className="score text-5xl text-accent">{money(division.fee, tournament.currency)}</p>
                   <p className="text-ink">
                     {tournament.payment_instructions ||
                       "Scan the QR code with your e-wallet or banking app and pay the exact amount. Take a screenshot of the successful payment — you'll upload it next."}
                   </p>
                 </div>
               </div>
-              <Field label="Reference number (optional)" hint="From your payment receipt — helps us match your payment.">
-                <Input value={details.paymentRef ?? ""} onChange={set("paymentRef")} />
+              <Field
+                label="Last 6 digits of your reference number"
+                hint="It's on your payment receipt. Numbers only."
+                error={fieldErrors.paymentRef}
+              >
+                <Input
+                  inputMode="numeric"
+                  autoComplete="off"
+                  required
+                  placeholder="123456"
+                  value={details.paymentRef}
+                  onChange={(e) => setDetails((d) => ({ ...d, paymentRef: typedPaymentRef(e.target.value) }))}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    const pasted = pastedPaymentRef(e.clipboardData.getData("text"));
+                    setDetails((d) => ({ ...d, paymentRef: pasted }));
+                  }}
+                />
               </Field>
               <div className="flex justify-between gap-3">
                 <Button variant="ghost" onClick={() => setStep(0)}>
                   Back
                 </Button>
-                <Button size="lg" onClick={() => setStep(2)} disabled={!accepting}>
+                <Button
+                  size="lg"
+                  disabled={!accepting}
+                  onClick={() => {
+                    if (validatePayment()) setStep(2);
+                  }}
+                >
                   I&apos;ve paid
                 </Button>
               </div>
@@ -246,7 +274,7 @@ export function RegistrationWizard({
             <div className="space-y-5">
               <h2 className="display text-2xl">Upload payment proof</h2>
               <p className="text-ink">
-                Your slot is confirmed as soon as your screenshot is uploaded. We&apos;ll email your confirmation code.
+                Your entry is confirmed as soon as your screenshot is uploaded. We&apos;ll email your confirmation code.
               </p>
               <Field
                 label="Email for your confirmation"
@@ -264,8 +292,8 @@ export function RegistrationWizard({
               </Field>
               <label
                 className={cn(
-                  "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-6 text-center transition",
-                  file ? "border-court/60 bg-court/5" : "border-white/20 hover:border-ball hover:bg-ball/5",
+                  "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-md border-2 border-dashed p-6 text-center transition",
+                  file ? "border-court/60 bg-court/5" : "border-fg/40 hover:border-ball hover:bg-ball/5",
                 )}
               >
                 {preview ? (
@@ -274,7 +302,7 @@ export function RegistrationWizard({
                 ) : (
                   <span className="display text-xl text-ink">Tap to choose screenshot</span>
                 )}
-                <span className="text-sm font-semibold text-chrome">{file ? file.name : "JPG, PNG or WebP"}</span>
+                <span className="text-sm font-semibold text-fg">{file ? file.name : "JPG, PNG or WebP"}</span>
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
@@ -290,7 +318,7 @@ export function RegistrationWizard({
                   Back
                 </Button>
                 <Button size="lg" onClick={submit} disabled={pending || !file || !accepting}>
-                  {pending ? phase ?? "Submitting…" : "Submit & confirm slot"}
+                  {pending ? phase ?? "Submitting…" : "Submit & confirm entry"}
                 </Button>
               </div>
             </div>
@@ -303,17 +331,12 @@ export function RegistrationWizard({
         </div>
       </div>
 
-      <aside className="h-fit space-y-4 rounded-2xl border border-white/10 bg-navy-900/70 p-5 lg:sticky lg:top-20">
-        <Badge tone={accent}>{doubles ? "Doubles" : "Singles"}</Badge>
-        <p className="display text-3xl">{division.name}</p>
-        <SlotMeter cap={division.slot_cap} taken={division.confirmed_count} accent={accent} />
-        <dl className="space-y-1 border-t border-white/10 pt-4 text-sm">
-          <div className="flex justify-between">
-            <dt className="text-ink">Entry fee</dt>
-            <dd className="font-bold">{money(division.fee, tournament.currency)}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-ink">Tournament</dt>
+      <aside className={ticketClass(accent, "h-fit space-y-4 lg:sticky lg:top-20")}>
+        <p className="display text-3xl text-pine-900">{division.name}</p>
+        <EntryCount count={division.confirmed_count} kind={division.kind} />
+        <dl className="border-t border-dashed border-pine-900/40 pt-4 text-sm">
+          <div className="flex justify-between gap-3">
+            <dt>Tournament</dt>
             <dd className="text-right font-bold">{tournament.name}</dd>
           </div>
         </dl>

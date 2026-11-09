@@ -1,13 +1,15 @@
 "use server";
 
+import { after } from "next/server";
 import { z } from "zod";
+import { isPaymentRef, PAYMENT_REF_ERROR } from "@/lib/payment-ref";
+import { sendConfirmation } from "@/lib/send-confirmation";
 import { createServiceClient } from "@/lib/supabase/server";
 
 type Fail = { ok: false; error: string };
 const fail = (error: string): Fail => ({ ok: false, error });
 
 const RPC_ERRORS: Record<string, string> = {
-  DIVISION_FULL: "Sorry — all slots in this division were just taken.",
   REGISTRATION_CLOSED: "Registration for this division is closed.",
   DIVISION_NOT_FOUND: "This division no longer exists.",
   ALREADY_REGISTERED: "This email is already registered in this division.",
@@ -21,17 +23,14 @@ async function divisionGate(divisionId: string): Promise<Fail | null> {
   const sb = createServiceClient();
   const { data, error } = await sb
     .from("divisions")
-    .select("slot_cap, confirmed_count, registration_open, tournaments!inner(status)")
+    .select("registration_open, tournaments!inner(status)")
     .eq("id", divisionId)
     .maybeSingle<{
-      slot_cap: number;
-      confirmed_count: number;
       registration_open: boolean;
       tournaments: { status: string };
     }>();
   if (error || !data) return fail(RPC_ERRORS.DIVISION_NOT_FOUND);
   if (data.tournaments.status !== "open" || !data.registration_open) return fail(RPC_ERRORS.REGISTRATION_CLOSED);
-  if (data.confirmed_count >= data.slot_cap) return fail(RPC_ERRORS.DIVISION_FULL);
   return null;
 }
 
@@ -74,7 +73,7 @@ const RegistrationInput = z.object({
   player2Phone: optional(20),
   player2Email: optional(120),
   teamName: optional(60),
-  paymentRef: optional(60),
+  paymentRef: z.string().refine(isPaymentRef, PAYMENT_REF_ERROR),
   proofPath: z.string().regex(PROOF_PATH, "Please upload your payment screenshot."),
   website: z.string().max(0).optional(), // honeypot — humans never see it
 });
@@ -82,7 +81,7 @@ const RegistrationInput = z.object({
 export type RegistrationInput = z.input<typeof RegistrationInput>;
 export type RegistrationResult = { ok: true; code: string } | (Fail & { fields?: Record<string, string> });
 
-/** Step 2 of submit: verify the uploaded proof and atomically claim the slot. */
+/** Step 2 of submit: verify the uploaded proof and register the entry. */
 export async function completeRegistration(input: RegistrationInput): Promise<RegistrationResult> {
   const parsed = RegistrationInput.safeParse(input);
   if (!parsed.success) {
@@ -120,7 +119,14 @@ export async function completeRegistration(input: RegistrationInput): Promise<Re
   if (error || !data) {
     await proofs.remove([v.proofPath]);
     const known = error && Object.keys(RPC_ERRORS).find((k) => error.message.includes(k));
-    return fail(known ? RPC_ERRORS[known] : "Something went wrong. Your slot was not taken — please try again.");
+    return fail(known ? RPC_ERRORS[known] : "Something went wrong. Your entry was not saved — please try again.");
   }
+
+  // The entry is already saved and the code is on the success page, so email failures only get logged.
+  after(async () => {
+    const sent = await sendConfirmation(data.id);
+    if (!sent.ok) console.error(`Confirmation email for ${data.confirmation_code} not sent: ${sent.error}`);
+  });
+
   return { ok: true, code: data.confirmation_code };
 }

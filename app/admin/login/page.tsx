@@ -10,10 +10,7 @@ export default function LoginPage() {
     <div className="mx-auto max-w-sm px-4 py-16">
       <h1 className="display text-4xl">Admin</h1>
       <p className="mt-2 text-ink">Organisers only.</p>
-      <ActionForm action={signIn} className="mt-8 space-y-4 rounded-2xl border border-white/10 bg-navy-900/70 p-6">
-        <Field label="Email">
-          <Input name="email" type="email" autoComplete="username" required />
-        </Field>
+      <ActionForm action={signIn} className="mt-8 space-y-4 rounded-md bg-panel p-6">
         <Field label="Password">
           <Input name="password" type="password" autoComplete="current-password" required />
         </Field>

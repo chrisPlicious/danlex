@@ -1,24 +1,25 @@
+import { Stripes } from "@/components/club";
 import type { Podium as PodiumData } from "@/lib/bracket";
 
 export function Podium({ podium, names }: { podium: PodiumData; names: Record<string, string> }) {
   if (!podium.first) return null;
   const place = (id: string | null) => (id ? (names[id] ?? "—") : "—");
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-ball/50 bg-navy-900 p-6">
-      <div aria-hidden className="halftone bg-flame absolute inset-0 opacity-15" />
-      <div className="relative grid gap-4 sm:grid-cols-[1fr_auto_auto] sm:items-end">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.25em] text-ball">Champion</p>
-          <p className="display mt-1 text-5xl text-flame">{place(podium.first)}</p>
+    <div className="overflow-hidden rounded-md bg-ticket text-pine-950">
+      <Stripes className="h-5" />
+      <div className="grid gap-4 p-5 sm:grid-cols-[1fr_auto_auto] sm:items-end sm:gap-8 sm:p-6">
+        <div className="min-w-0">
+          <p className="text-sm font-bold">Champion</p>
+          <p className="display mt-1 text-5xl break-words text-pine-900">{place(podium.first)}</p>
         </div>
-        <div className="sm:text-right">
-          <p className="text-xs font-bold uppercase tracking-widest text-ink">Runner-up</p>
-          <p className="display text-xl">{place(podium.second)}</p>
+        <div className="min-w-0">
+          <p className="text-sm font-bold">Runner-up</p>
+          <p className="display mt-1 text-2xl break-words text-pine-900">{place(podium.second)}</p>
         </div>
         {podium.third && (
-          <div className="sm:text-right">
-            <p className="text-xs font-bold uppercase tracking-widest text-ink">Third</p>
-            <p className="display text-xl">{place(podium.third)}</p>
+          <div className="min-w-0">
+            <p className="text-sm font-bold">Third</p>
+            <p className="display mt-1 text-2xl break-words text-pine-900">{place(podium.third)}</p>
           </div>
         )}
       </div>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { Badge, buttonClass, Card, Skeleton, SlotMeter } from "@/components/ui";
+import { Badge, buttonClass, Card, EntryCount, Skeleton } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
 import { dateTime, money } from "@/lib/format";
 import { getAdminTournament } from "@/lib/queries";
@@ -68,7 +68,7 @@ async function DashboardContent() {
                   </Badge>
                 </div>
               </div>
-              <SlotMeter cap={d.slot_cap} taken={d.confirmed_count} accent={d.kind === "singles" ? "electric" : "magenta"} />
+              <EntryCount count={d.confirmed_count} kind={d.kind} />
               <p className="text-sm text-ink">
                 Collected {money(Number(d.fee) * d.confirmed_count, tournament.currency)} · fee{" "}
                 {money(d.fee, tournament.currency)}
@@ -89,7 +89,7 @@ async function DashboardContent() {
       <Card className="p-5">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="display text-2xl">Latest registrations</h2>
-          <Link href="/admin/registrations" className="text-sm font-bold text-ball hover:underline">
+          <Link href="/admin/registrations" className="text-sm font-bold text-accent hover:underline">
             All →
           </Link>
         </div>

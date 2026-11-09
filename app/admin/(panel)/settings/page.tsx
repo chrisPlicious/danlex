@@ -39,14 +39,14 @@ async function SettingsContent() {
           <section>
             <h2 className="display mb-1 text-3xl">Divisions</h2>
             <p className="mb-4 text-ink">
-              Slot cap can be raised any time, or lowered down to the number of confirmed entries.
+              Entries are unlimited. Registration stays open until you untick it or publish the bracket.
             </p>
             <div className="space-y-4">
               {data.divisions.map((d) => (
                 <DivisionForm key={d.id} tournamentId={data.tournament.id} division={d} />
               ))}
-              <details className="rounded-2xl border border-dashed border-white/20 p-5">
-                <summary className="cursor-pointer font-bold text-ball">+ Add division</summary>
+              <details className="rounded-2xl border border-dashed border-fg/20 p-5">
+                <summary className="cursor-pointer font-bold text-accent">+ Add division</summary>
                 <div className="mt-4">
                   <DivisionForm tournamentId={data.tournament.id} />
                 </div>
@@ -149,7 +149,7 @@ function DivisionForm({ tournamentId, division: d }: { tournamentId: string; div
       <ActionForm action={saveDivision} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {d && <input type="hidden" name="id" value={d.id} />}
         <input type="hidden" name="tournament_id" value={tournamentId} />
-        <Field label="Name">
+        <Field label="Name" hint={d ? `${d.confirmed_count} confirmed` : undefined}>
           <Input name="name" defaultValue={d?.name ?? ""} placeholder="Men's Doubles" required />
         </Field>
         <Field label="Type">
@@ -158,9 +158,6 @@ function DivisionForm({ tournamentId, division: d }: { tournamentId: string; div
             <option value="doubles">Doubles</option>
           </Select>
           {d && d.confirmed_count > 0 && <input type="hidden" name="kind" value={d.kind} />}
-        </Field>
-        <Field label="Slot cap" hint={d ? `${d.confirmed_count} confirmed` : undefined}>
-          <Input name="slot_cap" type="number" min={Math.max(2, d?.confirmed_count ?? 0)} max={128} defaultValue={d?.slot_cap ?? 5} required />
         </Field>
         <Field label="Entry fee">
           <Input name="fee" type="number" min={0} step="0.01" defaultValue={d ? Number(d.fee) : 0} required />

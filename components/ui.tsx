@@ -1,14 +1,16 @@
 import type { ComponentProps, ReactNode } from "react";
+import type { DivisionKind } from "@/lib/types";
 
 export const cn = (...classes: (string | false | null | undefined)[]) => classes.filter(Boolean).join(" ");
 
-type Variant = "primary" | "secondary" | "ghost" | "danger";
+type Variant = "primary" | "secondary" | "ghost" | "danger" | "ticket";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-flame text-navy-950 shadow-[0_6px_24px_-6px_rgb(255_107_26/0.6)] hover:brightness-110",
-  secondary: "border border-white/15 bg-white/5 text-chrome hover:bg-white/10",
-  ghost: "text-ink hover:bg-white/5 hover:text-chrome",
+  primary: "bg-ball text-pine-950 hover:brightness-110",
+  secondary: "border border-fg/60 text-fg hover:bg-fg/10",
+  ghost: "text-ink hover:bg-fg/5 hover:text-fg",
   danger: "border border-danger/40 bg-danger/10 text-danger hover:bg-danger/20",
+  ticket: "bg-pine-900 text-cream hover:bg-pine-700",
 };
 
 export function buttonClass(variant: Variant = "primary", size: "sm" | "md" | "lg" = "md") {
@@ -33,7 +35,7 @@ export function Button({
 export function Card({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
-      className={cn("rounded-2xl border border-white/10 bg-navy-900/70 shadow-xl shadow-black/20", className)}
+      className={cn("rounded-md border border-fg/10 bg-panel/70 shadow-xl shadow-black/20", className)}
       {...props}
     />
   );
@@ -41,9 +43,9 @@ export function Card({ className, ...props }: ComponentProps<"div">) {
 
 type Tone = "neutral" | "court" | "ball" | "danger" | "electric" | "magenta";
 const tones: Record<Tone, string> = {
-  neutral: "bg-white/10 text-ink",
+  neutral: "bg-fg/10 text-ink",
   court: "bg-court/15 text-court",
-  ball: "bg-ball/15 text-ball",
+  ball: "bg-ball/15 text-accent",
   danger: "bg-danger/15 text-danger",
   electric: "bg-electric/20 text-electric-soft",
   magenta: "bg-magenta/15 text-magenta-soft",
@@ -76,7 +78,7 @@ export function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-semibold text-chrome">{label}</span>
+      <span className="mb-1.5 block text-sm font-semibold text-fg">{label}</span>
       {children}
       {error ? (
         <span className="mt-1 block text-xs font-semibold text-danger">{error}</span>
@@ -88,7 +90,7 @@ export function Field({
 }
 
 export const inputClass =
-  "block h-11 w-full rounded-lg border border-white/15 bg-navy-950/60 px-3 text-chrome placeholder:text-ink/60 focus:border-ball focus:outline-none";
+  "block h-11 w-full rounded-lg border border-fg/15 bg-well px-3 text-fg placeholder:text-ink/60 focus:border-ball focus:outline-none";
 
 export function Input({ className, ...props }: ComponentProps<"input">) {
   return <input className={cn(inputClass, className)} {...props} />;
@@ -106,7 +108,7 @@ export function Alert({ tone = "danger", children }: { tone?: "danger" | "court"
   const styles = {
     danger: "border-danger/40 bg-danger/10 text-danger",
     court: "border-court/40 bg-court/10 text-court",
-    ball: "border-ball/40 bg-ball/10 text-ball",
+    ball: "border-ball/40 bg-ball/10 text-accent",
   };
   return (
     <div role="alert" className={cn("rounded-lg border px-4 py-3 text-sm font-semibold", styles[tone])}>
@@ -116,34 +118,34 @@ export function Alert({ tone = "danger", children }: { tone?: "danger" | "court"
 }
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse rounded-xl bg-white/5", className)} />;
+  return <div className={cn("animate-pulse rounded-xl bg-fg/5", className)} />;
 }
 
-/** Pips for small caps, a bar for big ones. */
-export function SlotMeter({ cap, taken, accent }: { cap: number; taken: number; accent: "electric" | "magenta" }) {
-  const left = Math.max(0, cap - taken);
-  const fill = accent === "electric" ? "bg-electric" : "bg-magenta";
+/** Flip-board tiles, one per character. Hidden from screen readers, so pair them with text. */
+export function Tiles({ value }: { value: string }) {
+  return (
+    <span className="flex gap-1.5" aria-hidden>
+      {[...value].map((char, i) => (
+        <span
+          key={i}
+          className="score relative rounded bg-board px-2.5 py-2 text-3xl text-ball after:absolute after:inset-x-0 after:top-1/2 after:h-px after:bg-black"
+        >
+          {char}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+export function EntryCount({ count, kind }: { count: number; kind: DivisionKind }) {
+  const noun = kind === "doubles" ? "team" : "player";
   return (
     <div>
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="display text-3xl">
-          {left === 0 ? <span className="text-danger">Full</span> : <span className="text-flame">{left}</span>}
-        </span>
-        <span className="text-xs font-semibold uppercase tracking-wider text-ink">
-          {left === 0 ? `${cap} / ${cap} taken` : `of ${cap} slots left`}
-        </span>
-      </div>
-      {cap <= 16 ? (
-        <div className="mt-2 flex gap-1.5" aria-hidden>
-          {Array.from({ length: cap }, (_, i) => (
-            <span key={i} className={cn("h-2.5 flex-1 rounded-full", i < taken ? fill : "bg-white/10")} />
-          ))}
-        </div>
-      ) : (
-        <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white/10" aria-hidden>
-          <div className={cn("h-full rounded-full", fill)} style={{ width: `${(taken / Math.max(cap, 1)) * 100}%` }} />
-        </div>
-      )}
+      <Tiles value={String(count).padStart(2, "0")} />
+      <p className="mt-2 text-sm font-semibold">
+        <span className="sr-only">{count} </span>
+        {count === 1 ? noun : `${noun}s`} registered
+      </p>
     </div>
   );
 }

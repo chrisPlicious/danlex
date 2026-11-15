@@ -14,4 +14,4 @@ with t as (
 insert into public.divisions (tournament_id, kind, name, fee, sort_order)
 select t.id, d.kind::public.division_kind, d.name, d.fee, d.sort_order
   from t,
-       (values ('singles', 'Singles', 500, 0), ('doubles', 'Doubles', 800, 1)) as d (kind, name, fee, sort_order);
+       (values ('singles', 'Singles', 130, 0), ('doubles', 'Doubles', 260, 1)) as d (kind, name, fee, sort_order);

@@ -6,6 +6,8 @@ import { cn } from "@/components/ui";
 
 const LINKS = [
   { href: "/admin", label: "Dashboard" },
+  { href: "/admin/bookings", label: "Bookings" },
+  { href: "/admin/court", label: "Court & rates" },
   { href: "/admin/registrations", label: "Registrations" },
   { href: "/admin/brackets", label: "Brackets" },
   { href: "/admin/settings", label: "Tournament & divisions" },

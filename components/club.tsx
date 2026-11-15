@@ -32,11 +32,20 @@ export function StripeBend({ className }: { className?: string }) {
   );
 }
 
-/** Cream ticket, topped with the division's colour. */
-export function ticketClass(accent: "electric" | "magenta", className?: string) {
+const TICKET_TOPS = {
+  electric: "border-t-electric",
+  magenta: "border-t-magenta",
+  ball: "border-t-ball",
+  flame: "border-t-flame",
+} as const;
+
+export type TicketAccent = keyof typeof TICKET_TOPS;
+
+/** Cream ticket, topped with the division's colour (electric/magenta) or a court-rental colour (ball/flame). */
+export function ticketClass(accent: TicketAccent, className?: string) {
   return cn(
     "rounded-md border-t-[10px] bg-ticket p-4 text-pine-950 sm:p-5 [&_:focus-visible]:outline-pine-900",
-    accent === "electric" ? "border-t-electric" : "border-t-magenta",
+    TICKET_TOPS[accent],
     className,
   );
 }

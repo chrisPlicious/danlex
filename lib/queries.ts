@@ -2,7 +2,16 @@ import "server-only";
 import { connection } from "next/server";
 import { createPublicClient, createSessionClient } from "@/lib/supabase/server";
 import { supabaseUrl } from "@/lib/env";
-import type { BracketRow, Division, MatchRow, PublicEntrant, Tournament } from "@/lib/types";
+import type {
+  BracketRow,
+  BusyInterval,
+  CourtSettings,
+  Division,
+  MatchRow,
+  PlayType,
+  PublicEntrant,
+  Tournament,
+} from "@/lib/types";
 
 export interface TournamentWithDivisions {
   tournament: Tournament;
@@ -94,4 +103,57 @@ export async function getPublicEntrants(divisionId: string): Promise<PublicEntra
   const { data, error } = await createPublicClient().rpc("get_public_entrants", { p_division_id: divisionId });
   if (error) throw error;
   return (data ?? []) as PublicEntrant[];
+}
+
+// ---------------------------------------------------------------------------
+// court rentals
+// ---------------------------------------------------------------------------
+
+export interface CourtConfig {
+  settings: CourtSettings | null;
+  playTypes: PlayType[];
+}
+
+async function loadCourtConfig(sb: Client, includeInactive: boolean): Promise<CourtConfig> {
+  let types = sb.from("play_types").select("*");
+  if (!includeInactive) types = types.eq("active", true);
+  const [{ data: settings, error }, { data: playTypes, error: pErr }] = await Promise.all([
+    sb.from("court_settings").select("*").maybeSingle<CourtSettings>(),
+    types.order("sort_order").order("name").returns<PlayType[]>(),
+  ]);
+  if (error) throw error;
+  if (pErr) throw pErr;
+  return { settings, playTypes: playTypes ?? [] };
+}
+
+/** Booking rules and the active play types, for the public booking page. */
+export async function getCourtConfig() {
+  await connection();
+  return loadCourtConfig(createPublicClient(), false);
+}
+
+/** Same, as the signed-in admin (retired play types included). */
+export async function getAdminCourtConfig() {
+  return loadCourtConfig(await createSessionClient(), true);
+}
+
+/** Dates of announced (non-draft) tournaments; the court is closed to rentals on these days. */
+export async function getTournamentDays(): Promise<string[]> {
+  await connection();
+  const { data, error } = await createPublicClient()
+    .from("tournaments")
+    .select("event_date")
+    .neq("status", "draft")
+    .not("event_date", "is", null)
+    .returns<{ event_date: string }[]>();
+  if (error) throw error;
+  return [...new Set((data ?? []).map((t) => t.event_date))];
+}
+
+/** Taken hours on a court-local day (YYYY-MM-DD): confirmed bookings and live holds, no names. */
+export async function getCourtBusy(day: string): Promise<BusyInterval[]> {
+  await connection();
+  const { data, error } = await createPublicClient().rpc("get_court_busy", { p_day: day });
+  if (error) throw error;
+  return (data ?? []) as BusyInterval[];
 }

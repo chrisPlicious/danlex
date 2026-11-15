@@ -96,6 +96,60 @@ export interface PublicEntrant {
   display_name: string;
 }
 
+// ---------------------------------------------------------------------------
+// court rentals
+// ---------------------------------------------------------------------------
+
+export type BookingStatus = "held" | "confirmed" | "cancelled" | "expired";
+
+/** Single row. Hours are court-local (Asia/Manila), close_hour is exclusive. */
+export interface CourtSettings {
+  bookings_open: boolean;
+  open_hour: number;
+  close_hour: number;
+  max_hours: number;
+  days_ahead: number;
+  currency: string;
+  payment_qr_path: string | null;
+  payment_instructions: string | null;
+}
+
+/** A rental mode customers pick (Beginner, Open Play, Per Hour…). rate is per hour. */
+export interface PlayType {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  rate: number | string; // postgres numeric arrives as string
+  active: boolean;
+  sort_order: number;
+}
+
+export interface Booking {
+  id: string;
+  play_type_id: string;
+  status: BookingStatus;
+  starts_at: string;
+  ends_at: string;
+  hold_expires_at: string | null;
+  confirmation_code: string | null;
+  name: string;
+  phone: string;
+  email: string | null;
+  amount: number | string;
+  payment_ref: string | null;
+  payment_proof_path: string | null;
+  source: "online" | "admin";
+  admin_notes: string | null;
+  created_at: string;
+}
+
+/** What the public sees of other bookings: just the taken time. */
+export interface BusyInterval {
+  starts_at: string;
+  ends_at: string;
+}
+
 export const isAcceptingEntries = (t: Pick<Tournament, "status">, d: Division) =>
   t.status === "open" && d.registration_open;
 

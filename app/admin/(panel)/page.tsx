@@ -2,15 +2,109 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { Badge, buttonClass, Card, EntryCount, Skeleton } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
-import { dateTime, money } from "@/lib/format";
-import { getAdminTournament } from "@/lib/queries";
-import { displayName, type BracketRow, type Registration } from "@/lib/types";
+import { courtDay, courtInstant } from "@/lib/court";
+import { bookingWhen, dateTime, money } from "@/lib/format";
+import { getAdminCourtConfig, getAdminTournament } from "@/lib/queries";
+import { displayName, type Booking, type BracketRow, type Registration } from "@/lib/types";
 
 export default function Dashboard() {
   return (
-    <Suspense fallback={<Skeleton className="h-96" />}>
-      <DashboardContent />
-    </Suspense>
+    <div className="space-y-10">
+      <Suspense fallback={<Skeleton className="h-64" />}>
+        <CourtSummary />
+      </Suspense>
+      <Suspense fallback={<Skeleton className="h-96" />}>
+        <DashboardContent />
+      </Suspense>
+    </div>
+  );
+}
+
+async function CourtSummary() {
+  const { sb } = await requireAdmin();
+  const today = courtDay();
+  const nowIso = new Date().toISOString();
+  const [{ settings, playTypes }, { data: todays }, { count: upcoming }, { count: refunds }] = await Promise.all([
+    getAdminCourtConfig(),
+    sb
+      .from("bookings")
+      .select("*")
+      .eq("status", "confirmed")
+      .gte("starts_at", courtInstant(today, 0).toISOString())
+      .lt("starts_at", courtInstant(today, 24).toISOString())
+      .order("starts_at")
+      .returns<Booking[]>(),
+    sb.from("bookings").select("id", { count: "exact", head: true }).eq("status", "confirmed").gte("starts_at", nowIso),
+    sb
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "expired")
+      .not("payment_proof_path", "is", null),
+  ]);
+  const currency = settings?.currency ?? "PHP";
+  const typeName = new Map(playTypes.map((p) => [p.id, p.name]));
+  const list = todays ?? [];
+  const takings = list.reduce((sum, b) => sum + Number(b.amount), 0);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-sm font-bold uppercase tracking-widest text-ink">Court rental</p>
+          <h1 className="display text-4xl">Today on court</h1>
+        </div>
+        <Badge tone={settings?.bookings_open ? "court" : "ball"}>
+          {settings?.bookings_open ? "Bookings open" : "Bookings paused"}
+        </Badge>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Stat label="Booked today" value={String(list.length)} sub={money(takings, currency)} />
+        <Stat label="Upcoming" value={String(upcoming ?? 0)} sub="confirmed from now on" />
+        <Link href="/admin/bookings?status=refund" className="block rounded-md">
+          <Stat label="Refund / rebook" value={String(refunds ?? 0)} sub="paid after their hold lapsed" alert={!!refunds} />
+        </Link>
+      </div>
+      <Card className="p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="display text-2xl">Today&apos;s schedule</h2>
+          <div className="flex gap-4 text-sm font-bold">
+            <Link href="/admin/court" className="text-ink hover:text-fg">
+              Court &amp; rates
+            </Link>
+            <Link href="/admin/bookings" className="text-accent hover:underline">
+              All bookings →
+            </Link>
+          </div>
+        </div>
+        {list.length > 0 ? (
+          <ul className="divide-y divide-fg/10">
+            {list.map((b) => (
+              <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+                <div>
+                  <p className="font-bold">{bookingWhen(b.starts_at, b.ends_at).split(" · ")[1]}</p>
+                  <p className="text-xs text-ink">
+                    {b.name} · {typeName.get(b.play_type_id) ?? "—"} · {b.confirmation_code}
+                  </p>
+                </div>
+                <Badge tone={b.source === "admin" ? "neutral" : "court"}>{b.source === "admin" ? "walk-in" : "online"}</Badge>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-ink">No bookings today.</p>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function Stat({ label, value, sub, alert }: { label: string; value: string; sub: string; alert?: boolean }) {
+  return (
+    <Card className={alert ? "border-ball/60 p-5" : "p-5"}>
+      <p className="text-xs font-bold uppercase tracking-widest text-ink">{label}</p>
+      <p className={alert ? "score mt-2 text-4xl text-accent" : "score mt-2 text-4xl"}>{value}</p>
+      <p className="mt-1 text-sm text-ink">{sub}</p>
+    </Card>
   );
 }
 
@@ -49,7 +143,7 @@ async function DashboardContent() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-bold uppercase tracking-widest text-ink">Tournament</p>
-          <h1 className="display text-4xl">{tournament.name}</h1>
+          <h2 className="display text-4xl">{tournament.name}</h2>
         </div>
         <Badge tone={tournament.status === "open" ? "court" : "ball"}>{tournament.status.replace("_", " ")}</Badge>
       </div>

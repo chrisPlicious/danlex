@@ -1,6 +1,7 @@
-# Danlex Pickle Court — Tournament site
+# Danlex Pickle Court
 
-Registration (Singles / Doubles) with no limit on entries, QR payment with proof upload, live entry counts, and
+Court rentals by the hour (pick a play type, hold free hours, pay by QR, upload proof) and tournaments:
+Singles / Doubles registration with no limit on entries, QR payment with proof upload, live entry counts, and
 randomized double-elimination brackets sized from whoever registers (winners + losers bracket, grand final with
 reset). Next.js 16 + Supabase.
 
@@ -8,11 +9,15 @@ reset). Next.js 16 + Supabase.
 
 | Route | What |
 |---|---|
-| `/` | Landing, live entry counts per division |
+| `/` | Landing: court rental (play types and rates) and tournament (divisions, format) sections |
+| `/book` (`?type=<slug>`) | Play type → day and hours (live availability) → details → 15-minute hold → pay via QR → last 6 digits of reference → upload proof → booked |
+| `/book/success/[code]` | Booking code (`DLB-…`) |
 | `/register` → `/register/[divisionId]` | Pick division → details → pay via QR → enter last 6 digits of reference → upload proof → entry confirmed |
-| `/register/success/[code]` | Confirmation code |
+| `/register/success/[code]` | Confirmation code (`DLX-…`) |
 | `/bracket` | Public live bracket per division |
-| `/admin` | Dashboard (organisers only) |
+| `/admin` | Dashboard: today on court, refunds to handle, tournament divisions (organisers only) |
+| `/admin/bookings` | Bookings by day or upcoming/past, proofs, confirm/cancel, edit, email code, walk-in/phone bookings, delete |
+| `/admin/court` | Court hours and booking rules, court payment QR, play types and rates |
 | `/admin/registrations` | Review proofs, reject/restore, edit, walk-ins, delete, CSV export |
 | `/admin/brackets/[divisionId]` | Draw (random), re-shuffle, swap, publish, score, walkover, undo, courts, live flag |
 | `/admin/settings` | Tournament info, payment QR upload, divisions (registration switch, fee, match format, GF reset) |
@@ -40,6 +45,17 @@ The hero logo lives at `public/brand/danlex-logo.webp` (transparent background);
 - `npm run testdata:seed` adds 6 test entrants (`@example.com` emails) to every open division. Pass a count for more: `npm run testdata:seed -- 20`.
 - `npm run testdata:clear` removes them, plus any bracket that uses them, and reopens registration.
 - `npm run test:integration` runs the database tests against the project in `.env.local` and cleans up after itself.
+
+## How court bookings stay correct
+
+- One court: an exclusion constraint on `bookings` stops live holds and confirmed bookings from overlapping.
+- `hold_booking()` (service role only) checks hours, opening times, lead time and tournament days, then holds
+  the time for 15 minutes (at most 2 live holds per phone number).
+- `confirm_booking()` attaches the proof and confirms. If the hold lapsed and someone else took the time (or it
+  already started), the booking is kept as `expired` with a note and shows under **Refund / rebook** in admin.
+- Tournament days (a non-draft tournament with an `event_date`) close the court to rentals.
+- The public only sees busy intervals (`get_court_busy()`), never names or numbers.
+- Customers who give an email get their booking code by email (same Gmail setup as registrations).
 
 ## How registration stays correct
 

@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import { Suspense } from "react";
 import { ActionForm, SubmitButton } from "@/components/action-form";
-import { Badge, Card, Field, Input, Select, Skeleton, Textarea } from "@/components/ui";
+import { Alert, Badge, Card, Field, Input, Select, Skeleton, Textarea } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
+import { courtInstant } from "@/lib/court";
 import { getAdminTournament, publicAssetUrl, QR_PLACEHOLDER } from "@/lib/queries";
 import type { Division, Tournament } from "@/lib/types";
 import { deleteDivision, removeQr, saveDivision, saveTournament, uploadQr } from "../../actions/settings";
@@ -19,13 +21,35 @@ export default function SettingsPage() {
 }
 
 async function SettingsContent() {
-  await requireAdmin();
+  const { sb } = await requireAdmin();
   const data = await getAdminTournament();
+
+  // tournament day closes the court to rentals; flag bookings that were already made for it
+  const eventDay = data && data.tournament.status !== "draft" ? data.tournament.event_date : null;
+  const { count: clashes } = eventDay
+    ? await sb
+        .from("bookings")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["confirmed", "held"])
+        .gte("starts_at", courtInstant(eventDay, 0).toISOString())
+        .lt("starts_at", courtInstant(eventDay, 24).toISOString())
+    : { count: 0 };
 
   return (
     <div className="space-y-10">
       <section>
         <h1 className="display mb-4 text-4xl">{data ? "Tournament" : "Create tournament"}</h1>
+        {eventDay && !!clashes && (
+          <div className="mb-4">
+            <Alert tone="ball">
+              {clashes} court booking{clashes === 1 ? " is" : "s are"} already on the tournament day.{" "}
+              <Link href={`/admin/bookings?day=${eventDay}`} className="underline">
+                Review them
+              </Link>{" "}
+              — new rentals that day are blocked.
+            </Alert>
+          </div>
+        )}
         <TournamentForm tournament={data?.tournament} />
       </section>
 
@@ -70,7 +94,7 @@ function TournamentForm({ tournament: t }: { tournament?: Tournament }) {
         <Field label="URL slug">
           <Input name="slug" defaultValue={t?.slug ?? "danlex-open"} required />
         </Field>
-        <Field label="Event date">
+        <Field label="Event date" hint="Court rentals are blocked on this day unless the tournament is a draft.">
           <Input name="event_date" type="date" defaultValue={t?.event_date ?? ""} />
         </Field>
         <Field label="Venue">

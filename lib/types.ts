@@ -114,7 +114,7 @@ export interface CourtSettings {
   payment_instructions: string | null;
 }
 
-/** A rental mode customers pick (Beginner, Open Play, Per Hour…). rate is per hour. */
+/** A rental mode customers pick (Per Hour…). rate is per hour. Open play is a session, not a play type. */
 export interface PlayType {
   id: string;
   slug: string;
@@ -127,7 +127,9 @@ export interface PlayType {
 
 export interface Booking {
   id: string;
-  play_type_id: string;
+  /** Exactly one of play_type_id (a rental) and session_id (the court time of an open play session) is set. */
+  play_type_id: string | null;
+  session_id: string | null;
   status: BookingStatus;
   starts_at: string;
   ends_at: string;
@@ -150,7 +152,93 @@ export interface BusyInterval {
   ends_at: string;
 }
 
-export const isAcceptingEntries = (t: Pick<Tournament, "status">, d: Division) =>
+// ---------------------------------------------------------------------------
+// open play sessions
+// ---------------------------------------------------------------------------
+
+export type SessionKind = "open_play" | "beginner";
+export type SessionStatus = "scheduled" | "cancelled";
+export type SignupStatus = "held" | "confirmed" | "waitlisted" | "offered" | "cancelled" | "expired";
+/** Self-rated: 1 beginner, 2 intermediate, 3 advanced. */
+export type Level = 1 | 2 | 3;
+
+export interface Session {
+  id: string;
+  kind: SessionKind;
+  title: string;
+  starts_at: string;
+  ends_at: string;
+  capacity: number;
+  fee: number | string;
+  level_note: string | null;
+  notes: string | null;
+  signups_open: boolean;
+  status: SessionStatus;
+  version: number;
+  created_at: string;
+}
+
+/** get_sessions_public: a session plus live counts, no player details. */
+export interface PublicSession extends Omit<Session, "created_at"> {
+  spots_left: number;
+  waitlist: number;
+}
+
+export interface SessionSignup {
+  id: string;
+  session_id: string;
+  code: string;
+  status: SignupStatus;
+  name: string;
+  phone: string;
+  email: string | null;
+  level: Level;
+  hold_token: string | null;
+  hold_expires_at: string | null;
+  offer_notified_at: string | null;
+  amount: number | string;
+  payment_ref: string | null;
+  payment_proof_path: string | null;
+  source: "online" | "admin";
+  checked_in_at: string | null;
+  queue_paused: boolean;
+  refund_needed: boolean;
+  refunded_at: string | null;
+  cancelled_at: string | null;
+  admin_notes: string | null;
+  created_at: string;
+}
+
+export type GameStatus = "playing" | "done" | "void";
+
+/** get_session_queue: confirmed players, first name + last initial only. */
+export interface QueuePlayer {
+  id: string;
+  name: string;
+  level: Level;
+  checkedInAt: string | null;
+  paused: boolean;
+  lastEndedAt: string | null;
+}
+
+export interface QueueGame {
+  id: string;
+  number: number;
+  status: Exclude<GameStatus, "void">;
+  team1: [string, string];
+  team2: [string, string];
+  score1: number | null;
+  score2: number | null;
+  startedAt: string;
+  endedAt: string | null;
+}
+
+export interface SessionQueue {
+  players: QueuePlayer[];
+  games: QueueGame[];
+}
+
+export const isAcceptingEntries =(t: Pick<Tournament, "status">, d: Division) =>
   t.status === "open" && d.registration_open;
 
 export function displayName(r: Pick<Registration, "player1_name" | "player2_name" | "team_name">): string {

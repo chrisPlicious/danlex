@@ -5,13 +5,16 @@ import { requireAdmin } from "@/lib/auth";
 import { courtDay, courtInstant } from "@/lib/court";
 import { bookingWhen, dateTime, money } from "@/lib/format";
 import { getAdminCourtConfig, getAdminTournament } from "@/lib/queries";
-import { displayName, type Booking, type BracketRow, type Registration } from "@/lib/types";
+import { displayName, type Booking, type BracketRow, type Registration, type Session } from "@/lib/types";
 
 export default function Dashboard() {
   return (
     <div className="space-y-10">
       <Suspense fallback={<Skeleton className="h-64" />}>
         <CourtSummary />
+      </Suspense>
+      <Suspense fallback={<Skeleton className="h-48" />}>
+        <OpenPlaySummary />
       </Suspense>
       <Suspense fallback={<Skeleton className="h-96" />}>
         <DashboardContent />
@@ -34,7 +37,12 @@ async function CourtSummary() {
       .lt("starts_at", courtInstant(today, 24).toISOString())
       .order("starts_at")
       .returns<Booking[]>(),
-    sb.from("bookings").select("id", { count: "exact", head: true }).eq("status", "confirmed").gte("starts_at", nowIso),
+    sb
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "confirmed")
+      .is("session_id", null)
+      .gte("starts_at", nowIso),
     sb
       .from("bookings")
       .select("id", { count: "exact", head: true })
@@ -44,7 +52,8 @@ async function CourtSummary() {
   const currency = settings?.currency ?? "PHP";
   const typeName = new Map(playTypes.map((p) => [p.id, p.name]));
   const list = todays ?? [];
-  const takings = list.reduce((sum, b) => sum + Number(b.amount), 0);
+  const rentals = list.filter((b) => !b.session_id);
+  const takings = rentals.reduce((sum, b) => sum + Number(b.amount), 0);
 
   return (
     <div className="space-y-4">
@@ -58,7 +67,7 @@ async function CourtSummary() {
         </Badge>
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
-        <Stat label="Booked today" value={String(list.length)} sub={money(takings, currency)} />
+        <Stat label="Rentals today" value={String(rentals.length)} sub={money(takings, currency)} />
         <Stat label="Upcoming" value={String(upcoming ?? 0)} sub="confirmed from now on" />
         <Link href="/admin/bookings?status=refund" className="block rounded-md">
           <Stat label="Refund / rebook" value={String(refunds ?? 0)} sub="paid after their hold lapsed" alert={!!refunds} />
@@ -83,10 +92,22 @@ async function CourtSummary() {
                 <div>
                   <p className="font-bold">{bookingWhen(b.starts_at, b.ends_at).split(" · ")[1]}</p>
                   <p className="text-xs text-ink">
-                    {b.name} · {typeName.get(b.play_type_id) ?? "—"} · {b.confirmation_code}
+                    {b.session_id ? (
+                      <Link href={`/admin/sessions/${b.session_id}`} className="hover:text-fg">
+                        {b.name} · open play session →
+                      </Link>
+                    ) : (
+                      <>
+                        {b.name} · {(b.play_type_id && typeName.get(b.play_type_id)) ?? "—"} · {b.confirmation_code}
+                      </>
+                    )}
                   </p>
                 </div>
-                <Badge tone={b.source === "admin" ? "neutral" : "court"}>{b.source === "admin" ? "walk-in" : "online"}</Badge>
+                {b.session_id ? (
+                  <Badge tone="magenta">open play</Badge>
+                ) : (
+                  <Badge tone={b.source === "admin" ? "neutral" : "court"}>{b.source === "admin" ? "walk-in" : "online"}</Badge>
+                )}
               </li>
             ))}
           </ul>
@@ -95,6 +116,76 @@ async function CourtSummary() {
         )}
       </Card>
     </div>
+  );
+}
+
+async function OpenPlaySummary() {
+  const { sb } = await requireAdmin();
+  const nowIso = new Date().toISOString();
+  const [{ data: sessions }, { count: refunds }] = await Promise.all([
+    sb
+      .from("sessions")
+      .select("*")
+      .eq("status", "scheduled")
+      .gt("ends_at", nowIso)
+      .order("starts_at")
+      .limit(3)
+      .returns<Session[]>(),
+    sb.from("session_signups").select("id", { count: "exact", head: true }).eq("refund_needed", true),
+  ]);
+  const list = sessions ?? [];
+  const { data: signups } = list.length
+    ? await sb
+        .from("session_signups")
+        .select("session_id")
+        .eq("status", "confirmed")
+        .in(
+          "session_id",
+          list.map((s) => s.id),
+        )
+        .returns<{ session_id: string }[]>()
+    : { data: [] };
+  const confirmed = (id: string) => (signups ?? []).filter((r) => r.session_id === id).length;
+
+  return (
+    <Card className="p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-bold uppercase tracking-widest text-ink">Open play</p>
+          <h2 className="display text-2xl">Next sessions</h2>
+        </div>
+        <div className="flex items-center gap-4 text-sm font-bold">
+          {!!refunds && <Badge tone="ball">{refunds} to refund</Badge>}
+          <Link href="/admin/sessions" className="text-accent hover:underline">
+            All sessions →
+          </Link>
+        </div>
+      </div>
+      {list.length > 0 ? (
+        <ul className="divide-y divide-fg/10">
+          {list.map((s) => (
+            <li key={s.id}>
+              <Link href={`/admin/sessions/${s.id}`} className="flex flex-wrap items-center justify-between gap-2 py-3 hover:text-accent">
+                <span>
+                  <span className="block font-bold">{s.title}</span>
+                  <span className="text-xs text-ink">{bookingWhen(s.starts_at, s.ends_at)}</span>
+                </span>
+                <span className="score text-xl">
+                  {confirmed(s.id)}/{s.capacity}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-ink">
+          No sessions scheduled.{" "}
+          <Link href="/admin/sessions" className="font-bold text-accent hover:underline">
+            Post one
+          </Link>
+        </p>
+      )}
+    </Card>
   );
 }
 

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ActionForm, SubmitButton } from "@/components/action-form";
-import { Badge, Button, Card, cn, Field, Input, Select, Skeleton, Textarea } from "@/components/ui";
+import { Badge, Button, buttonClass, Card, cn, Field, Input, Select, Skeleton, Textarea } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
 import { courtDay, courtInstant, hourLabel } from "@/lib/court";
 import { bookingWhen, dateTime, dayLabel, money } from "@/lib/format";
@@ -185,7 +185,7 @@ async function BookingsContent({ searchParams }: { searchParams: PageProps<"/adm
                 <BookingRow
                   key={b.id}
                   b={b}
-                  playType={typeById.get(b.play_type_id)}
+                  playType={b.play_type_id ? typeById.get(b.play_type_id) : undefined}
                   currency={currency}
                   proof={(b.payment_proof_path && proofUrl.get(b.payment_proof_path)) || undefined}
                 />
@@ -250,6 +250,31 @@ const STATUS_TONE = { confirmed: "court", held: "ball", expired: "neutral", canc
 function BookingRow({ b, playType, currency, proof }: { b: Booking; playType?: PlayType; currency: string; proof?: string }) {
   const needsRefund = b.status === "expired" && !!b.payment_proof_path;
   const live = b.status === "confirmed" || b.status === "held";
+
+  // an open play session's court time: managed from the session, not here
+  if (b.session_id) {
+    return (
+      <Card className="p-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="grid size-20 shrink-0 place-items-center rounded-lg border border-dashed border-magenta/40 text-center text-[10px] font-bold uppercase text-magenta-soft">
+            Open play
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-lg font-bold">{bookingWhen(b.starts_at, b.ends_at)}</p>
+              <Badge tone={STATUS_TONE[b.status]}>{b.status}</Badge>
+              <Badge tone="magenta">Open play</Badge>
+            </div>
+            <p className="mt-1 text-sm text-fg/90">{b.name}</p>
+          </div>
+          <Link href={`/admin/sessions/${b.session_id}`} className={buttonClass("secondary", "sm")}>
+            Manage session
+          </Link>
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <Card className={cn("p-4", needsRefund && "border-ball/50")}>
       <div className="flex flex-wrap items-start gap-4">

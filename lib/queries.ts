@@ -10,6 +10,8 @@ import type {
   MatchRow,
   PlayType,
   PublicEntrant,
+  PublicSession,
+  SessionQueue,
   Tournament,
 } from "@/lib/types";
 
@@ -148,6 +150,34 @@ export async function getTournamentDays(): Promise<string[]> {
     .returns<{ event_date: string }[]>();
   if (error) throw error;
   return [...new Set((data ?? []).map((t) => t.event_date))];
+}
+
+// ---------------------------------------------------------------------------
+// open play sessions
+// ---------------------------------------------------------------------------
+
+/** Scheduled sessions that haven't ended, soonest first, with live spot counts. */
+export async function getUpcomingSessions(): Promise<PublicSession[]> {
+  await connection();
+  const { data, error } = await createPublicClient().rpc("get_sessions_public", {});
+  if (error) throw error;
+  return (data ?? []) as PublicSession[];
+}
+
+/** One session by id, cancelled or past included. */
+export async function getPublicSession(id: string): Promise<PublicSession | null> {
+  await connection();
+  const { data, error } = await createPublicClient().rpc("get_sessions_public", { p_session_id: id });
+  if (error) throw error;
+  return ((data ?? []) as PublicSession[])[0] ?? null;
+}
+
+/** Confirmed players (first name + last initial) and games, for the queue board. */
+export async function getSessionQueue(id: string): Promise<SessionQueue> {
+  await connection();
+  const { data, error } = await createPublicClient().rpc("get_session_queue", { p_session_id: id });
+  if (error) throw error;
+  return (data ?? { players: [], games: [] }) as SessionQueue;
 }
 
 /** Taken hours on a court-local day (YYYY-MM-DD): confirmed bookings and live holds, no names. */

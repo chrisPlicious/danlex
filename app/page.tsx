@@ -1,13 +1,15 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { HeroLogo } from "@/components/brand";
 import { StripeBend, Stripes } from "@/components/club";
 import { DivisionCards } from "@/components/division-cards";
 import { PlayTypeCards } from "@/components/play-type-cards";
+import { SessionCards } from "@/components/session-cards";
 import { Alert, buttonClass, Skeleton, Tiles } from "@/components/ui";
 import { hourLabel } from "@/lib/court";
 import { eventDate } from "@/lib/format";
-import { getActiveTournament, getCourtConfig } from "@/lib/queries";
+import { getActiveTournament, getCourtConfig, getUpcomingSessions } from "@/lib/queries";
 
 export default function Home() {
   return (
@@ -22,7 +24,7 @@ export default function Home() {
               Take the <span className="whitespace-nowrap">title home.</span>
             </h1>
             <p className="mt-5 max-w-lg text-lg text-ink">
-              Rent the court by the hour for practice, open play or a private match — or sign up for the next
+              Rent the court by the hour, join an open play session to meet other players, or sign up for the next
               double-elimination tournament.
             </p>
             <Suspense fallback={<Skeleton className="mt-4 h-6 w-64" />}>
@@ -32,8 +34,8 @@ export default function Home() {
               <Link href="/book" className={buttonClass("primary", "lg")}>
                 Book the court
               </Link>
-              <Link href="#tournament" className={buttonClass("secondary", "lg")}>
-                Tournament
+              <Link href="/play" className={buttonClass("secondary", "lg")}>
+                Open play
               </Link>
             </div>
           </div>
@@ -67,7 +69,7 @@ export default function Home() {
           </div>
           <ol className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              ["Pick a play type", "Beginner, open play or the whole court to yourself."],
+              ["Pick a play type", "The whole court to yourself: practice, drills or a private match."],
               ["Choose your hours", "Free times show live. We hold yours for 15 minutes."],
               ["Pay by QR", "Pay the exact amount and enter the last 6 digits of your reference number."],
               ["Show your code", "Upload the receipt and you're booked."],
@@ -81,6 +83,37 @@ export default function Home() {
               </li>
             ))}
           </ol>
+        </div>
+      </section>
+
+      <section id="open-play" className="scroll-mt-14">
+        <div className="mx-auto max-w-6xl px-4 py-10 md:py-14">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-sm font-bold text-accent">Open play</p>
+              <h2 className="display mt-1 text-4xl">Play with the club</h2>
+              <p className="mt-3 max-w-2xl text-ink">
+                No group? No problem. Grab a spot in a session, check in at the court and rotate through doubles games
+                with players at your level.
+              </p>
+            </div>
+            <Link href="/play" className={buttonClass("secondary")}>
+              All sessions
+            </Link>
+          </div>
+          <div className="mt-6">
+            <Suspense
+              fallback={
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <Skeleton className="h-80" />
+                  <Skeleton className="h-80" />
+                  <Skeleton className="h-80" />
+                </div>
+              }
+            >
+              <OpenPlay />
+            </Suspense>
+          </div>
         </div>
       </section>
 
@@ -173,6 +206,12 @@ async function CourtOptions() {
       <PlayTypeCards playTypes={playTypes} currency={settings?.currency ?? "PHP"} bookingsOpen={open} />
     </div>
   );
+}
+
+async function OpenPlay() {
+  const [sessions, { settings }] = await Promise.all([getUpcomingSessions(), getCourtConfig()]);
+  await connection();
+  return <SessionCards sessions={sessions.slice(0, 3)} currency={settings?.currency ?? "PHP"} now={new Date().getTime()} />;
 }
 
 async function TournamentHeader() {

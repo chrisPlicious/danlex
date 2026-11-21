@@ -2,7 +2,8 @@
 
 import { Button } from "@/components/ui";
 
-export default function Error({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+/** Shared body for the error.tsx boundaries, which sit inside each section's layout so its header stays up. */
+export function ErrorState({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
     <div className="mx-auto max-w-md px-4 py-20 text-center">
       <p className="display text-5xl text-accent">Fault!</p>

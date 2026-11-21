@@ -17,7 +17,8 @@ const LINKS = [
 /** Static links; also the Suspense fallback while the pathname is unknown. */
 export function NavLinks({ path }: { path?: string }) {
   return (
-    <nav className="-mx-1 flex flex-wrap gap-1" aria-label="Admin">
+    // one scrollable row so the sticky header stays short on phones
+    <nav className="-mx-1 flex w-max gap-1" aria-label="Admin">
       {LINKS.map((l) => {
         const active = path !== undefined && (l.href === "/admin" ? path === "/admin" : path.startsWith(l.href));
         return (
@@ -26,7 +27,7 @@ export function NavLinks({ path }: { path?: string }) {
             href={l.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "rounded-lg px-3 py-2 text-sm font-bold transition",
+              "rounded-lg px-3 py-1.5 text-sm font-bold whitespace-nowrap transition",
               active ? "bg-ball text-pine-950" : "text-ink hover:bg-fg/5 hover:text-fg",
             )}
           >

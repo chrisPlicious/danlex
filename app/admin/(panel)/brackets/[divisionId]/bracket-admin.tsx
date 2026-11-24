@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { BracketView } from "@/components/bracket/bracket-view";
-import { RoundRobinView } from "@/components/bracket/round-robin-view";
+import { RoundRobinGames, RoundRobinStandings } from "@/components/bracket/round-robin-view";
 import { Podium } from "@/components/bracket/podium";
 import { Alert, Badge, Button, Card, cn, Field, Input, Select } from "@/components/ui";
 import {
@@ -114,6 +114,41 @@ export function BracketAdmin({ division, bundle }: { division: Division; bundle:
   const isDraft = bracket.status === "draft";
   const hasResults = engine.matches.some((m) => m.status === "completed");
   const match = selected ? engine.matches.find((m) => m.code === selected) : undefined;
+  const panel = match ? (
+    <MatchPanel
+      key={`${match.code}:${bracket.version}`}
+      match={match}
+      names={bundle.entrants}
+      format={format}
+      court={meta[match.code]?.court ?? ""}
+      isDraft={isDraft}
+      pending={pending}
+      onClose={() => setSelected(null)}
+      onScore={(games) => {
+        const trial = structuredClone(engine);
+        try {
+          const cleared = recordResult(trial, match.code, games, format);
+          if (cleared.length && !confirm(`Changing the winner clears: ${cleared.join(", ")}. Continue?`)) return;
+        } catch (e) {
+          return setError(e instanceof Error ? e.message : "Invalid score");
+        }
+        run(() => scoreMatch(bracket.id, match.code, games), `${match.code} saved.`);
+      }}
+      onWalkover={(winner) => {
+        if (match.status === "completed") {
+          const cleared = previewUndo(engine, match.code).filter((c) => c !== match.code);
+          if (cleared.length && !confirm(`This clears: ${cleared.join(", ")}. Continue?`)) return;
+        }
+        run(() => walkoverMatch(bracket.id, match.code, winner), `${match.code}: walkover recorded.`);
+      }}
+      onUndo={() => {
+        const cleared = previewUndo(engine, match.code);
+        if (!confirm(`Undo ${cleared.join(", ")}?`)) return;
+        run(() => undoMatch(bracket.id, match.code));
+      }}
+      onDetails={(court, live) => run(() => updateMatchDetails(bracket.id, match.code, { court, live }), "Match updated.")}
+    />
+  ) : null;
 
   return (
     <div className="space-y-6">
@@ -178,61 +213,39 @@ export function BracketAdmin({ division, bundle }: { division: Division; bundle:
 
       <Podium podium={getPodium(engine)} names={bundle.entrants} />
 
-      {match && (
-        <MatchPanel
-          key={`${match.code}:${bracket.version}`}
-          match={match}
-          names={bundle.entrants}
-          format={format}
-          court={meta[match.code]?.court ?? ""}
-          isDraft={isDraft}
-          pending={pending}
-          onClose={() => setSelected(null)}
-          onScore={(games) => {
-            const trial = structuredClone(engine);
-            try {
-              const cleared = recordResult(trial, match.code, games, format);
-              if (cleared.length && !confirm(`Changing the winner clears: ${cleared.join(", ")}. Continue?`)) return;
-            } catch (e) {
-              return setError(e instanceof Error ? e.message : "Invalid score");
-            }
-            run(() => scoreMatch(bracket.id, match.code, games), `${match.code} saved.`);
-          }}
-          onWalkover={(winner) => {
-            if (match.status === "completed") {
-              const cleared = previewUndo(engine, match.code).filter((c) => c !== match.code);
-              if (cleared.length && !confirm(`This clears: ${cleared.join(", ")}. Continue?`)) return;
-            }
-            run(() => walkoverMatch(bracket.id, match.code, winner), `${match.code}: walkover recorded.`);
-          }}
-          onUndo={() => {
-            const cleared = previewUndo(engine, match.code);
-            if (!confirm(`Undo ${cleared.join(", ")}?`)) return;
-            run(() => undoMatch(bracket.id, match.code));
-          }}
-          onDetails={(court, live) => run(() => updateMatchDetails(bracket.id, match.code, { court, live }), "Match updated.")}
-        />
-      )}
-
-      {engine.matches.length > 0 && <p className="text-sm text-ink">Tap a match to score it, set a court, or undo a result.</p>}
       {roundRobin ? (
-        <RoundRobinView
-          matches={engine.matches}
-          names={bundle.entrants}
-          colors={bundle.colors}
-          meta={meta}
-          selected={selected}
-          onSelect={setSelected}
-        />
+        <>
+          {/* score card on the left, live standings beside it */}
+          <div className="grid items-start gap-6 lg:grid-cols-2">
+            {panel ?? (
+              <Card className="border-dashed p-5 text-sm text-ink">
+                Tap a game below to score it, set a court, or undo a result.
+              </Card>
+            )}
+            <RoundRobinStandings matches={engine.matches} names={bundle.entrants} colors={bundle.colors} />
+          </div>
+          <RoundRobinGames
+            matches={engine.matches}
+            names={bundle.entrants}
+            colors={bundle.colors}
+            meta={meta}
+            selected={selected}
+            onSelect={setSelected}
+          />
+        </>
       ) : (
-        <BracketView
-          matches={engine.matches}
-          names={bundle.entrants}
-          colors={bundle.colors}
-          meta={meta}
-          selected={selected}
-          onSelect={setSelected}
-        />
+        <>
+          {panel}
+          {engine.matches.length > 0 && <p className="text-sm text-ink">Tap a match to score it, set a court, or undo a result.</p>}
+          <BracketView
+            matches={engine.matches}
+            names={bundle.entrants}
+            colors={bundle.colors}
+            meta={meta}
+            selected={selected}
+            onSelect={setSelected}
+          />
+        </>
       )}
     </div>
   );

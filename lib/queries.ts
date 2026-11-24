@@ -65,6 +65,8 @@ export interface BracketBundle {
   bracket: BracketRow;
   matches: MatchRow[];
   entrants: Record<string, string>;
+  /** entrant id → team colour, only for entrants that have one */
+  colors: Record<string, string>;
 }
 
 async function loadBracket(sb: Client, divisionId: string): Promise<BracketBundle | null> {
@@ -82,10 +84,12 @@ async function loadBracket(sb: Client, divisionId: string): Promise<BracketBundl
   ]);
   if (mErr) throw mErr;
   if (eErr) throw eErr;
+  const list = (entrants ?? []) as PublicEntrant[];
   return {
     bracket,
     matches: matches ?? [],
-    entrants: Object.fromEntries(((entrants ?? []) as PublicEntrant[]).map((e) => [e.id, e.display_name])),
+    entrants: Object.fromEntries(list.map((e) => [e.id, e.display_name])),
+    colors: Object.fromEntries(list.flatMap((e) => (e.color ? [[e.id, e.color]] : []))),
   };
 }
 

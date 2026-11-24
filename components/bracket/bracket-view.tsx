@@ -3,6 +3,7 @@
 import { Fragment, useMemo } from "react";
 import { cn } from "@/components/ui";
 import type { BracketMatch, Side } from "@/lib/bracket";
+import { textOn } from "@/lib/team-color";
 
 export interface MatchMeta {
   court: string | null;
@@ -88,12 +89,15 @@ function feederHints(matches: BracketMatch[]) {
 export function BracketView({
   matches,
   names,
+  colors = {},
   meta = {},
   selected,
   onSelect,
 }: {
   matches: BracketMatch[];
   names: Record<string, string>;
+  /** entrant id → team colour (#rrggbb) used as the background of that team's cells */
+  colors?: Record<string, string>;
   meta?: Record<string, MatchMeta>;
   selected?: string | null;
   onSelect?: (code: string) => void;
@@ -101,7 +105,7 @@ export function BracketView({
   const { winners, losers, wRounds, lRounds } = useMemo(() => layout(matches), [matches]);
   const hints = useMemo(() => feederHints(matches), [matches]);
 
-  const panelProps = { names, meta, hints, selected, onSelect };
+  const panelProps = { names, colors, meta, hints, selected, onSelect };
   return (
     <div className="space-y-8">
       {winners.length > 0 && (
@@ -120,6 +124,7 @@ function Panel({
   placed,
   lastRound,
   names,
+  colors,
   meta,
   hints,
   selected,
@@ -130,6 +135,7 @@ function Panel({
   placed: Placed[];
   lastRound: number;
   names: Record<string, string>;
+  colors: Record<string, string>;
   meta: Record<string, MatchMeta>;
   hints: Map<string, string>;
   selected?: string | null;
@@ -181,6 +187,7 @@ function Panel({
               key={p.m.code}
               m={p.m}
               names={names}
+              colors={colors}
               meta={meta[p.m.code]}
               hints={hints}
               selected={selected === p.m.code}
@@ -197,6 +204,7 @@ function Panel({
 function MatchCard({
   m,
   names,
+  colors,
   meta,
   hints,
   selected,
@@ -205,6 +213,7 @@ function MatchCard({
 }: {
   m: BracketMatch;
   names: Record<string, string>;
+  colors: Record<string, string>;
   meta?: MatchMeta;
   hints: Map<string, string>;
   selected: boolean;
@@ -218,9 +227,9 @@ function MatchCard({
 
   const label = (slot: 1 | 2) => {
     const s = slot === 1 ? m.slot1 : m.slot2;
-    if (s.bye) return { text: "BYE", muted: true };
-    if (s.entrantId) return { text: names[s.entrantId] ?? "Unknown", muted: false };
-    return { text: hints.get(`${m.code}:${slot}`) ?? "TBD", muted: true };
+    if (s.bye) return { text: "BYE", muted: true, color: undefined };
+    if (s.entrantId) return { text: names[s.entrantId] ?? "Unknown", muted: false, color: colors[s.entrantId] };
+    return { text: hints.get(`${m.code}:${slot}`) ?? "TBD", muted: true, color: undefined };
   };
 
   const Tag = clickable ? "button" : "div";
@@ -249,7 +258,7 @@ function MatchCard({
         </span>
       </div>
       {([1, 2] as const).map((slot) => {
-        const { text, muted } = label(slot);
+        const { text, muted, color } = label(slot);
         const won = m.winner === slot && m.status === "completed";
         const lost = m.status === "completed" && m.winner !== null && m.winner !== slot;
         return (
@@ -259,9 +268,10 @@ function MatchCard({
               "flex min-h-0 flex-1 items-center justify-between gap-2 border-l-[3px] px-2 text-sm",
               slot === 1 && "border-b border-b-fg/10",
               won ? "border-l-ball bg-ball/10 font-bold text-fg" : "border-l-transparent",
-              lost && "text-ink/70",
+              lost && (color ? "opacity-60" : "text-ink/70"),
               muted && "text-ink/60 italic",
             )}
+            style={color ? { backgroundColor: color, color: textOn(color) } : undefined}
           >
             <span className="truncate">{text}</span>
             <span className="flex shrink-0 gap-1">

@@ -118,7 +118,7 @@ describe("registration", () => {
 
     const { data: entrants } = await anon.rpc("get_public_entrants", { p_division_id: singlesId });
     expect(entrants).toHaveLength(7);
-    expect(Object.keys(entrants![0]).sort()).toEqual(["created_at", "display_name", "id"]);
+    expect(Object.keys(entrants![0]).sort()).toEqual(["color", "created_at", "display_name", "id"]);
   });
 
   it("keeps the count right through reject, walk-in, and restore", async () => {

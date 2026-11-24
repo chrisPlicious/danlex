@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { ActionState } from "@/components/action-form";
 import { adminClient } from "@/lib/auth";
 import { sendConfirmation } from "@/lib/send-confirmation";
+import { HEX_COLOR } from "@/lib/team-color";
 
 const fail = (error: string): ActionState => ({ ok: false, error });
 const done = (message: string): ActionState => ({ ok: true, message });
@@ -35,6 +36,10 @@ const Details = z.object({
   player2_phone: blankToNull,
   player2_email: blankToNull,
   team_name: blankToNull,
+  color: z
+    .union([z.literal(""), z.string().regex(HEX_COLOR, "pick a colour from the list")])
+    .optional()
+    .transform((v) => v || null),
   payment_ref: blankToNull,
   admin_notes: blankToNull,
 });

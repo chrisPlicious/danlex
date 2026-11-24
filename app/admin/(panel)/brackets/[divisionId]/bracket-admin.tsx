@@ -199,7 +199,14 @@ export function BracketAdmin({ division, bundle }: { division: Division; bundle:
       )}
 
       {engine.matches.length > 0 && <p className="text-sm text-ink">Tap a match to score it, set a court, or undo a result.</p>}
-      <BracketView matches={engine.matches} names={bundle.entrants} meta={meta} selected={selected} onSelect={setSelected} />
+      <BracketView
+        matches={engine.matches}
+        names={bundle.entrants}
+        colors={bundle.colors}
+        meta={meta}
+        selected={selected}
+        onSelect={setSelected}
+      />
     </div>
   );
 }

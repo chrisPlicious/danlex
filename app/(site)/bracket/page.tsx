@@ -65,7 +65,7 @@ async function Content({ searchParams }: { searchParams: PageProps<"/bracket">["
             </span>
           </div>
           <Podium podium={getPodium(toEngine(bundle.bracket.grand_final_reset, bundle.matches))} names={bundle.entrants} />
-          <LiveBracket bracketId={bundle.bracket.id} rows={bundle.matches} names={bundle.entrants} />
+          <LiveBracket bracketId={bundle.bracket.id} rows={bundle.matches} names={bundle.entrants} colors={bundle.colors} />
         </div>
       ) : (
         <EntrantList divisionId={division.id} accent={division.kind === "singles" ? "electric" : "magenta"} />
@@ -87,6 +87,13 @@ async function EntrantList({ divisionId, accent }: { divisionId: string; accent:
           {entrants.map((e, i) => (
             <li key={e.id} className="flex items-center gap-3 rounded bg-pine-900/10 px-3 py-2">
               <span className="score w-6 text-pine-700">{i + 1}</span>
+              {e.color && (
+                <span
+                  className="size-4 shrink-0 rounded-full border border-pine-900/30"
+                  style={{ backgroundColor: e.color }}
+                  aria-hidden
+                />
+              )}
               <span className="font-semibold">{e.display_name}</span>
             </li>
           ))}

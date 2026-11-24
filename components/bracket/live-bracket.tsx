@@ -12,10 +12,12 @@ export function LiveBracket({
   bracketId,
   rows,
   names,
+  colors,
 }: {
   bracketId: string;
   rows: MatchRow[];
   names: Record<string, string>;
+  colors?: Record<string, string>;
 }) {
   const router = useRouter();
   const matches = useMemo(() => sortMatches(rows.map(rowToMatch)), [rows]);
@@ -42,5 +44,5 @@ export function LiveBracket({
     };
   }, [bracketId, router]);
 
-  return <BracketView matches={matches} names={names} meta={meta} />;
+  return <BracketView matches={matches} names={names} colors={colors} meta={meta} />;
 }

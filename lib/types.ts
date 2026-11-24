@@ -49,6 +49,8 @@ export interface Registration {
   player2_phone: string | null;
   player2_email: string | null;
   team_name: string | null;
+  /** #rrggbb, shown as the background of the team's bracket cells */
+  color: string | null;
   payment_proof_path: string | null;
   payment_ref: string | null;
   source: "online" | "admin";
@@ -94,6 +96,7 @@ export interface MatchRow {
 export interface PublicEntrant {
   id: string;
   display_name: string;
+  color: string | null;
 }
 
 // ---------------------------------------------------------------------------

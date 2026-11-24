@@ -6,6 +6,7 @@ import { Badge, buttonClass, Card, cn, Field, Input, Select, Skeleton, Textarea 
 import { requireAdmin } from "@/lib/auth";
 import { dateTime } from "@/lib/format";
 import { getAdminTournament } from "@/lib/queries";
+import { colorName, TEAM_COLORS } from "@/lib/team-color";
 import { displayName, type Division, type Registration } from "@/lib/types";
 import {
   addRegistration,
@@ -175,6 +176,17 @@ function DetailFields({ r }: { r?: Registration }) {
       <Field label="Team name">
         <Input name="team_name" defaultValue={r?.team_name ?? ""} />
       </Field>
+      <Field label="Team colour (bracket background)">
+        <Select name="color" defaultValue={r?.color ?? ""}>
+          <option value="">None</option>
+          {TEAM_COLORS.map((c) => (
+            <option key={c.hex} value={c.hex}>
+              {c.name}
+            </option>
+          ))}
+          {r?.color && !TEAM_COLORS.some((c) => c.hex === r.color) && <option value={r.color}>{r.color}</option>}
+        </Select>
+      </Field>
       <Field label="Payment ref">
         <Input name="payment_ref" defaultValue={r?.payment_ref ?? ""} />
       </Field>
@@ -203,6 +215,16 @@ function RegistrationRow({ r, division, proof }: { r: Registration; division?: D
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-lg font-bold">{displayName(r)}</p>
+            {r.color && (
+              <span className="flex items-center gap-1.5 text-sm text-ink">
+                <span
+                  className="size-4 rounded-full border border-fg/30"
+                  style={{ backgroundColor: r.color }}
+                  aria-hidden
+                />
+                {colorName(r.color)}
+              </span>
+            )}
             <Badge tone={confirmed ? "court" : "danger"}>{r.status}</Badge>
             {division && <Badge tone={division.kind === "singles" ? "electric" : "magenta"}>{division.name}</Badge>}
           </div>

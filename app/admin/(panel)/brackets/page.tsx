@@ -40,9 +40,11 @@ async function BracketsContent() {
                   {b ? b.status : "not drawn"}
                 </Badge>
               </div>
-              <p className="text-sm text-ink">{d.confirmed_count} confirmed entries</p>
+              <p className="text-sm text-ink">
+                {d.confirmed_count} confirmed entries · {d.format === "round_robin" ? "round robin" : "double elimination"}
+              </p>
               <Link href={`/admin/brackets/${d.id}`} className={buttonClass(b ? "secondary" : "primary", "sm")}>
-                {b ? "Manage bracket" : "Draw bracket"}
+                {b ? "Manage bracket" : d.format === "round_robin" ? "Make schedule" : "Draw bracket"}
               </Link>
             </Card>
           );

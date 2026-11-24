@@ -1,4 +1,5 @@
-export type Side = "W" | "L" | "GF";
+/** W/L/GF: double elimination. RR: a round-robin game (no routing). */
+export type Side = "W" | "L" | "GF" | "RR";
 export type SlotIndex = 1 | 2;
 
 /**

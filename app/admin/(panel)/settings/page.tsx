@@ -183,6 +183,12 @@ function DivisionForm({ tournamentId, division: d }: { tournamentId: string; div
           </Select>
           {d && d.confirmed_count > 0 && <input type="hidden" name="kind" value={d.kind} />}
         </Field>
+        <Field label="Format" hint="Used the next time the bracket is drawn">
+          <Select name="format" defaultValue={d?.format ?? "double_elimination"}>
+            <option value="double_elimination">Double elimination</option>
+            <option value="round_robin">Round robin</option>
+          </Select>
+        </Field>
         <Field label="Entry fee">
           <Input name="fee" type="number" min={0} step="0.01" defaultValue={d ? Number(d.fee) : 0} required />
         </Field>

@@ -15,7 +15,6 @@ export default function BracketPage({ searchParams }: PageProps<"/bracket">) {
   return (
     <div className="mx-auto max-w-7xl px-4 py-10">
       <h1 className="display text-5xl">Bracket</h1>
-      <p className="mt-2 text-ink">Double elimination · updates live as scores come in.</p>
       <Suspense fallback={<Skeleton className="mt-8 h-[30rem]" />}>
         <Content searchParams={searchParams} />
       </Suspense>
@@ -31,9 +30,14 @@ async function Content({ searchParams }: { searchParams: PageProps<"/bracket">["
   }
   const division = data.divisions.find((x) => x.id === d) ?? data.divisions[0];
   const bundle = await getPublicBracket(division.id);
+  const roundRobin = division.format === "round_robin";
 
   return (
     <>
+      <p className="mt-2 text-ink">
+        {roundRobin ? "Round robin · every team plays every other team once" : "Double elimination"} · updates live
+        as scores come in.
+      </p>
       <nav className="mt-6 flex flex-wrap gap-2" aria-label="Divisions">
         {data.divisions.map((x) => (
           <Link
@@ -68,19 +72,33 @@ async function Content({ searchParams }: { searchParams: PageProps<"/bracket">["
           <LiveBracket bracketId={bundle.bracket.id} rows={bundle.matches} names={bundle.entrants} colors={bundle.colors} />
         </div>
       ) : (
-        <EntrantList divisionId={division.id} accent={division.kind === "singles" ? "electric" : "magenta"} />
+        <EntrantList
+          divisionId={division.id}
+          accent={division.kind === "singles" ? "electric" : "magenta"}
+          roundRobin={roundRobin}
+        />
       )}
     </>
   );
 }
 
-async function EntrantList({ divisionId, accent }: { divisionId: string; accent: "electric" | "magenta" }) {
+async function EntrantList({
+  divisionId,
+  accent,
+  roundRobin,
+}: {
+  divisionId: string;
+  accent: "electric" | "magenta";
+  roundRobin: boolean;
+}) {
   const entrants = await getPublicEntrants(divisionId);
   return (
     <div className={ticketClass(accent, "mt-8")}>
-      <p className="display text-3xl text-pine-900">Draw not made yet</p>
+      <p className="display text-3xl text-pine-900">{roundRobin ? "Schedule not posted yet" : "Draw not made yet"}</p>
       <p className="mt-2">
-        The bracket is drawn at random once registration closes. {entrants.length} registered so far.
+        {roundRobin
+          ? `Every team plays every other team once. ${entrants.length} teams so far.`
+          : `The bracket is drawn at random once registration closes. ${entrants.length} registered so far.`}
       </p>
       {entrants.length > 0 && (
         <ul className="mt-5 grid gap-2 sm:grid-cols-2">

@@ -33,9 +33,12 @@ export interface Division {
   fee: number | string; // postgres numeric arrives as string
   registration_open: boolean;
   match_format: MatchFormatRow;
+  format: DivisionFormat;
   grand_final_reset: boolean;
   sort_order: number;
 }
+
+export type DivisionFormat = "double_elimination" | "round_robin";
 
 export interface Registration {
   id: string;

@@ -65,9 +65,9 @@ export function seedingOf(b: Bracket): string[] {
   return seeds.filter(Boolean);
 }
 
-/** True when the bracket places exactly these entrants, in any order. */
+/** True when the bracket (either format) places exactly these entrants, in any order. */
 export function hasExactEntrants(b: Bracket, entrantIds: string[]): boolean {
-  const placed = new Set(seedingOf(b));
+  const placed = new Set(b.matches.flatMap((m) => [m.slot1.entrantId, m.slot2.entrantId]).filter((id) => id !== null));
   return placed.size === entrantIds.length && entrantIds.every((id) => placed.has(id));
 }
 

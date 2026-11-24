@@ -3,11 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { BracketView } from "@/components/bracket/bracket-view";
+import { RoundRobinView } from "@/components/bracket/round-robin-view";
 import { Podium } from "@/components/bracket/podium";
 import { Alert, Badge, Button, Card, cn, Field, Input, Select } from "@/components/ui";
 import {
   describeFormat,
   getPodium,
+  isRoundRobin,
   previewUndo,
   recordResult,
   scoreGames,
@@ -46,6 +48,7 @@ export function BracketAdmin({ division, bundle }: { division: Division; bundle:
     () => (bundle ? toEngine(bundle.bracket.grand_final_reset, bundle.matches) : null),
     [bundle],
   );
+  const roundRobin = engine ? isRoundRobin(engine) : division.format === "round_robin";
   const meta = useMemo(
     () => Object.fromEntries((bundle?.matches ?? []).map((r) => [r.code, { court: r.court, scheduled_at: r.scheduled_at }])),
     [bundle],
@@ -77,7 +80,7 @@ export function BracketAdmin({ division, bundle }: { division: Division; bundle:
         <h1 className="display mt-2 text-4xl">{division.name}</h1>
         <p className="text-sm text-ink">
           {division.confirmed_count} confirmed · {describeFormat(format)} ·{" "}
-          {division.grand_final_reset ? "grand final reset on" : "single grand final"}
+          {roundRobin ? "round robin" : division.grand_final_reset ? "grand final reset on" : "single grand final"}
         </p>
       </div>
     </div>
@@ -88,13 +91,19 @@ export function BracketAdmin({ division, bundle }: { division: Division; bundle:
       <div className="space-y-6">
         {header}
         <Card className="space-y-4 p-6">
-          <p className="display text-2xl">No bracket yet</p>
+          <p className="display text-2xl">{roundRobin ? "No schedule yet" : "No bracket yet"}</p>
           <p className="text-ink">
-            Drawing places every confirmed entry at random. You can re-shuffle or swap positions before publishing.
+            {roundRobin
+              ? "Every confirmed entry plays every other entry once. Seeds follow registration order (first registered is seed 1), and nobody plays two games in a row where possible."
+              : "Drawing places every confirmed entry at random. You can re-shuffle or swap positions before publishing."}
           </p>
           {error && <Alert>{error}</Alert>}
-          <Button size="lg" disabled={pending || division.confirmed_count < 2} onClick={() => run(() => generateBracket(division.id), "Bracket drawn.")}>
-            {pending ? "Drawing…" : "Draw random bracket"}
+          <Button
+            size="lg"
+            disabled={pending || division.confirmed_count < 2}
+            onClick={() => run(() => generateBracket(division.id), roundRobin ? "Schedule made." : "Bracket drawn.")}
+          >
+            {pending ? (roundRobin ? "Making…" : "Drawing…") : roundRobin ? "Make schedule" : "Draw random bracket"}
           </Button>
         </Card>
       </div>
@@ -123,14 +132,21 @@ export function BracketAdmin({ division, bundle }: { division: Division; bundle:
             >
               Publish
             </Button>
-            <Button size="sm" variant="secondary" disabled={pending} onClick={() => run(() => generateBracket(division.id), "Re-shuffled.")}>
-              Re-shuffle draw
-            </Button>
-            <SwapControl
-              entrants={bundle.entrants}
+            <Button
+              size="sm"
+              variant="secondary"
               disabled={pending}
-              onSwap={(a, b) => run(() => swapEntrants(bracket.id, a, b), "Positions swapped.")}
-            />
+              onClick={() => run(() => generateBracket(division.id), roundRobin ? "Schedule remade." : "Re-shuffled.")}
+            >
+              {roundRobin ? "Remake schedule" : "Re-shuffle draw"}
+            </Button>
+            {!roundRobin && (
+              <SwapControl
+                entrants={bundle.entrants}
+                disabled={pending}
+                onSwap={(a, b) => run(() => swapEntrants(bracket.id, a, b), "Positions swapped.")}
+              />
+            )}
           </>
         ) : (
           <Button
@@ -199,14 +215,25 @@ export function BracketAdmin({ division, bundle }: { division: Division; bundle:
       )}
 
       {engine.matches.length > 0 && <p className="text-sm text-ink">Tap a match to score it, set a court, or undo a result.</p>}
-      <BracketView
-        matches={engine.matches}
-        names={bundle.entrants}
-        colors={bundle.colors}
-        meta={meta}
-        selected={selected}
-        onSelect={setSelected}
-      />
+      {roundRobin ? (
+        <RoundRobinView
+          matches={engine.matches}
+          names={bundle.entrants}
+          colors={bundle.colors}
+          meta={meta}
+          selected={selected}
+          onSelect={setSelected}
+        />
+      ) : (
+        <BracketView
+          matches={engine.matches}
+          names={bundle.entrants}
+          colors={bundle.colors}
+          meta={meta}
+          selected={selected}
+          onSelect={setSelected}
+        />
+      )}
     </div>
   );
 }

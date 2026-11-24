@@ -11,7 +11,7 @@ export interface MatchMeta {
 }
 
 const CARD_W = 228;
-const CARD_H = 78;
+export const CARD_H = 78;
 const GAP_X = 44;
 const GAP_Y = 14;
 const HEADER_H = 30;
@@ -192,6 +192,7 @@ function Panel({
               hints={hints}
               selected={selected === p.m.code}
               onSelect={onSelect}
+              className="absolute"
               style={{ left: p.col * STRIDE_X, top: HEADER_H + p.y, width: CARD_W, height: CARD_H }}
             />
           ))}
@@ -201,7 +202,7 @@ function Panel({
   );
 }
 
-function MatchCard({
+export function MatchCard({
   m,
   names,
   colors,
@@ -209,6 +210,7 @@ function MatchCard({
   hints,
   selected,
   onSelect,
+  className,
   style,
 }: {
   m: BracketMatch;
@@ -218,6 +220,7 @@ function MatchCard({
   hints: Map<string, string>;
   selected: boolean;
   onSelect?: (code: string) => void;
+  className?: string;
   style: React.CSSProperties;
 }) {
   const isBye = m.status === "bye";
@@ -238,7 +241,8 @@ function MatchCard({
       type={clickable ? "button" : undefined}
       onClick={clickable ? () => onSelect!(m.code) : undefined}
       className={cn(
-        "on-board absolute flex flex-col overflow-hidden rounded border bg-board text-left transition",
+        "on-board flex flex-col overflow-hidden rounded border bg-board text-left transition",
+        className,
         isGF ? "border-ball" : "border-fg/15",
         empty && "opacity-25",
         isBye && !empty && "opacity-55 light:opacity-75",
@@ -249,7 +253,7 @@ function MatchCard({
       style={style}
     >
       <div className="flex h-[18px] items-center justify-between bg-fg/5 px-2 text-[10px] font-bold uppercase tracking-wider text-ink">
-        <span>{m.code}</span>
+        <span>{m.side === "RR" ? `Game ${m.round}` : m.code}</span>
         <span className="flex items-center gap-1.5">
           {meta?.court && <span>Court {meta.court}</span>}
           {m.status === "live" && <span className="animate-pulse-live text-court">● Live</span>}

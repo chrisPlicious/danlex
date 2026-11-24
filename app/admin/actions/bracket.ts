@@ -7,8 +7,9 @@ import {
   BracketError,
   findMatch,
   generateDoubleElimination,
-  getChampion,
+  generateRoundRobin,
   hasExactEntrants,
+  isFinished,
   previewUndo,
   randomSeed,
   recordResult,
@@ -20,18 +21,20 @@ import {
   type MatchFormat,
 } from "@/lib/bracket";
 import { toCreatePayload, toEngine, toSavePayload } from "@/lib/bracket-db";
-import type { BracketRow, MatchFormatRow, MatchRow } from "@/lib/types";
+import type { BracketRow, DivisionFormat, MatchFormatRow, MatchRow } from "@/lib/types";
 
 export type BracketResult = { ok: true; cleared?: string[] } | { ok: false; error: string };
 const fail = (error: string): BracketResult => ({ ok: false, error });
 
 const Id = z.uuid();
-const Code = z.string().regex(/^(?:[WL]\d{1,2}-\d{1,3}|GF[12])$/);
+const Code = z.string().regex(/^(?:[WL]\d{1,2}-\d{1,3}|GF[12]|RR-\d{1,3})$/);
 const Games = z.array(z.object({ p1: z.number().int().min(0).max(99), p2: z.number().int().min(0).max(99) })).max(9);
 
 // Supabase returns at most 1,000 rows per read by default. 257+ entrants need 1,023 match rows,
 // so a bigger bracket would load with matches missing.
 const MAX_ENTRANTS = 256;
+// n entries play n(n-1)/2 games: 16 entries is already 120.
+const MAX_ROUND_ROBIN = 16;
 
 type Sb = Awaited<ReturnType<typeof adminClient>>;
 
@@ -70,19 +73,28 @@ async function saveNew(sb: Sb, divisionId: string, seed: number, b: Bracket): Pr
   return { ok: true };
 }
 
-/** Random draw of every confirmed entrant. Also used to re-shuffle a draft. */
+/**
+ * Double elimination: random draw of every confirmed entrant (also re-shuffles a draft).
+ * Round robin: every confirmed entrant plays every other once, seeded in registration order.
+ */
 export async function generateBracket(divisionId: string): Promise<BracketResult> {
   if (!Id.safeParse(divisionId).success) return fail("Invalid division");
   const sb = await adminClient();
   const { data: division } = await sb
     .from("divisions")
-    .select("grand_final_reset")
+    .select("grand_final_reset, format")
     .eq("id", divisionId)
-    .single<{ grand_final_reset: boolean }>();
+    .single<{ grand_final_reset: boolean; format: DivisionFormat }>();
   if (!division) return fail("Division not found");
 
   const ids = await confirmedEntrants(sb, divisionId);
   if (ids.length < 2) return fail("At least 2 confirmed entries are needed to draw a bracket.");
+  if (division.format === "round_robin") {
+    if (ids.length > MAX_ROUND_ROBIN) {
+      return fail(`A round robin can hold ${MAX_ROUND_ROBIN} entries and this division has ${ids.length}. Split it into groups.`);
+    }
+    return saveNew(sb, divisionId, 0, generateRoundRobin(ids));
+  }
   if (ids.length > MAX_ENTRANTS) {
     return fail(`A bracket can hold ${MAX_ENTRANTS} entries and this division has ${ids.length}. Split it into two divisions.`);
   }
@@ -98,6 +110,7 @@ export async function swapEntrants(bracketId: string, a: string, b: string): Pro
   const sb = await adminClient();
   const { bracket, rows } = await load(sb, bracketId);
   if (bracket.status !== "draft") return fail("Positions can only be swapped while the bracket is a draft.");
+  if (rows.some((r) => r.side === "RR")) return fail("A round robin is seeded in registration order.");
 
   const order = seedingOf(toEngine(bracket.grand_final_reset, rows));
   const ia = order.indexOf(a);
@@ -151,7 +164,7 @@ async function mutate(bracketId: string, fn: Mutation, { requirePublished = true
     }
 
     if (bracket.status !== "draft") {
-      const status = getChampion(engine) ? "completed" : "published";
+      const status = isFinished(engine) ? "completed" : "published";
       if (status !== bracket.status) await sb.from("brackets").update({ status }).eq("id", bracketId);
     }
     revalidate(bracket.division_id);

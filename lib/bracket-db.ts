@@ -1,7 +1,7 @@
 import type { Bracket, BracketMatch, Side } from "@/lib/bracket";
 import type { MatchRow } from "@/lib/types";
 
-const SIDE_ORDER: Record<Side, number> = { W: 0, L: 1, GF: 2 };
+const SIDE_ORDER: Record<Side, number> = { W: 0, L: 1, GF: 2, RR: 3 };
 
 export function sortMatches<T extends Pick<BracketMatch, "side" | "round" | "position">>(matches: T[]): T[] {
   return [...matches].sort(

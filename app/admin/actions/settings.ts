@@ -131,6 +131,7 @@ const DivisionInput = z.object({
   id: z.uuid().optional(),
   tournament_id: z.uuid(),
   kind: z.enum(["singles", "doubles"]),
+  format: z.enum(["double_elimination", "round_robin"]).default("double_elimination"),
   name: z.string().trim().min(2).max(60),
   fee: z.coerce.number().min(0).max(1_000_000),
   sort_order: z.coerce.number().int().min(0).max(99).default(0),

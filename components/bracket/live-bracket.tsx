@@ -3,11 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo } from "react";
 import { BracketView, type MatchMeta } from "@/components/bracket/bracket-view";
+import { RoundRobinView } from "@/components/bracket/round-robin-view";
+import { isRoundRobin } from "@/lib/bracket";
 import { rowToMatch, sortMatches } from "@/lib/bracket-db";
 import { browserClient } from "@/lib/supabase/browser";
 import type { MatchRow } from "@/lib/types";
 
-/** Public bracket: re-renders from the server whenever a match row changes. */
+/** Public bracket or round robin: re-renders from the server whenever a match row changes. */
 export function LiveBracket({
   bracketId,
   rows,
@@ -44,5 +46,9 @@ export function LiveBracket({
     };
   }, [bracketId, router]);
 
-  return <BracketView matches={matches} names={names} colors={colors} meta={meta} />;
+  return isRoundRobin({ matches }) ? (
+    <RoundRobinView matches={matches} names={names} colors={colors} meta={meta} />
+  ) : (
+    <BracketView matches={matches} names={names} colors={colors} meta={meta} />
+  );
 }

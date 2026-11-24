@@ -181,7 +181,7 @@ export async function getSessionQueue(id: string): Promise<SessionQueue> {
   await connection();
   const { data, error } = await createPublicClient().rpc("get_session_queue", { p_session_id: id });
   if (error) throw error;
-  return (data ?? { players: [], games: [] }) as SessionQueue;
+  return (data ?? { partnerMode: "random", tiebreak: "win_time", maxGames: 5, players: [], games: [] }) as SessionQueue;
 }
 
 /** Taken hours on a court-local day (YYYY-MM-DD): confirmed bookings and live holds, no names. */

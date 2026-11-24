@@ -1,9 +1,20 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { GameClock } from "@/components/game-clock";
+import { OpenPlayStandings } from "@/components/open-play-standings";
 import { Badge, cn } from "@/components/ui";
 import { useSessionVersion } from "@/components/use-session-version";
-import { levelLabel, playerStates, rotationOrder, suggestNextGame } from "@/lib/open-play";
+import {
+  clock,
+  gameSeconds,
+  levelLabel,
+  pairRotation,
+  partnerModeLabel,
+  playerStates,
+  rotationOrder,
+  suggestNextGame,
+} from "@/lib/open-play";
 import { browserClient } from "@/lib/supabase/browser";
 import type { QueueGame, SessionQueue } from "@/lib/types";
 
@@ -38,13 +49,19 @@ export function Teams({ game, names, className }: { game: Pick<QueueGame, "team1
 export function QueueBoard({ sessionId, initial, ended }: { sessionId: string; initial: SessionQueue; ended?: boolean }) {
   const queue = useLiveQueue(sessionId, initial);
   const names = useMemo(() => new Map(queue.players.map((p) => [p.id, p.name])), [queue.players]);
-  const states = useMemo(() => playerStates(queue.players, queue.games), [queue]);
+  const fixed = queue.partnerMode === "fixed";
+  const states = useMemo(() => playerStates(queue.players, queue.games, queue.maxGames), [queue]);
   const order = useMemo(() => rotationOrder(states), [states]);
-  const next = useMemo(() => suggestNextGame(queue.players, queue.games), [queue]);
+  const pairs = useMemo(() => pairRotation(states), [states]);
+  const next = useMemo(
+    () => suggestNextGame(queue.players, queue.games, { partnerMode: queue.partnerMode, maxGames: queue.maxGames }),
+    [queue],
+  );
   const playing = queue.games.find((g) => g.status === "playing");
   const done = queue.games.filter((g) => g.status === "done");
   const away = states.filter((s) => !s.player.checkedInAt);
   const resting = states.filter((s) => s.player.checkedInAt && s.player.paused && !s.onCourt);
+  const first = (id: string) => (names.get(id) ?? "Player").split(" ")[0];
 
   return (
     <div className="space-y-6">
@@ -60,7 +77,10 @@ export function QueueBoard({ sessionId, initial, ended }: { sessionId: string; i
         {playing ? (
           <>
             <Teams game={playing} names={names} className="text-xl" />
-            <p className="mt-3 text-center text-xs text-ink">Started {TIME.format(new Date(playing.startedAt))}</p>
+            <p className="mt-4 text-center">
+              <GameClock startedAt={playing.startedAt} className="score text-4xl text-court" />
+            </p>
+            <p className="mt-1 text-center text-xs text-ink">Started {TIME.format(new Date(playing.startedAt))}</p>
           </>
         ) : ended ? (
           <p className="text-ink">Session over. Thanks for playing!</p>
@@ -72,29 +92,45 @@ export function QueueBoard({ sessionId, initial, ended }: { sessionId: string; i
       <div className="grid gap-6 lg:grid-cols-2">
         <section className={cn("rounded-md bg-panel p-5", ended && "hidden")}>
           <h2 className="display mb-1 text-2xl">Up next</h2>
-          <p className="mb-4 text-xs text-ink">Fewest games first, then whoever has sat out longest. The organiser has the final say.</p>
+          <p className="mb-4 text-xs text-ink">
+            {partnerModeLabel(queue.partnerMode)} · up to {queue.maxGames} games each. Fewest games first, then whoever has sat
+            out longest. The organiser has the final say.
+          </p>
           {next ? (
             <div className="rounded-md bg-well p-4">
               <Teams game={next} names={names} />
             </div>
           ) : (
-            <p className="text-ink">Waiting for four players to be checked in and off court.</p>
+            <p className="text-ink">
+              {fixed ? "Waiting for two pairs to be checked in and off court." : "Waiting for four players to be checked in and off court."}
+            </p>
           )}
-          {order.length > 4 && (
-            <ol className="mt-4 space-y-1 text-sm" start={5}>
-              {order.slice(4).map((s, i) => (
-                <li key={s.player.id} className="flex justify-between gap-3">
-                  <span>
-                    <span className="score mr-2 text-ink">{i + 5}</span>
-                    {s.player.name}
-                  </span>
-                  <span className="text-ink">
-                    {s.played} {s.played === 1 ? "game" : "games"}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          )}
+          {fixed
+            ? pairs.length > 2 && (
+                <ol className="mt-4 space-y-1 text-sm">
+                  {pairs.slice(2).map((p, i) => (
+                    <li key={p.join(":")}>
+                      <span className="score mr-2 text-ink">{i + 3}</span>
+                      {first(p[0])} &amp; {first(p[1])}
+                    </li>
+                  ))}
+                </ol>
+              )
+            : order.length > 4 && (
+                <ol className="mt-4 space-y-1 text-sm" start={5}>
+                  {order.slice(4).map((s, i) => (
+                    <li key={s.player.id} className="flex justify-between gap-3">
+                      <span>
+                        <span className="score mr-2 text-ink">{i + 5}</span>
+                        {s.player.name}
+                      </span>
+                      <span className="text-ink">
+                        {s.played}/{queue.maxGames} games
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
         </section>
 
         <section className="rounded-md bg-panel p-5">
@@ -108,9 +144,13 @@ export function QueueBoard({ sessionId, initial, ended }: { sessionId: string; i
                   <span className={cn("font-semibold", !s.player.checkedInAt && "text-ink")}>{s.player.name}</span>
                   <span className="flex items-center gap-2">
                     <span className="text-xs text-ink">{levelLabel(s.player.level)}</span>
-                    <span className="score text-sm">{s.played}</span>
+                    <span className="score text-sm">
+                      {s.played}/{queue.maxGames}
+                    </span>
                     {s.onCourt ? (
                       <Badge tone="court">On court</Badge>
+                    ) : s.maxedOut ? (
+                      <Badge>All games played</Badge>
                     ) : !s.player.checkedInAt ? (
                       <Badge>Not here yet</Badge>
                     ) : s.player.paused ? (
@@ -131,19 +171,27 @@ export function QueueBoard({ sessionId, initial, ended }: { sessionId: string; i
         </section>
       </div>
 
+      {queue.players.length > 0 && <OpenPlayStandings queue={queue} names={Object.fromEntries(names)} />}
+
       {done.length > 0 && (
         <section className="rounded-md bg-panel p-5">
           <h2 className="display mb-4 text-2xl">Results</h2>
           <ul className="divide-y divide-fg/10">
-            {done.map((g) => (
-              <li key={g.id} className="grid items-center gap-2 py-3 sm:grid-cols-[3rem_1fr_6rem]">
-                <span className="score text-ink">#{g.number}</span>
-                <Teams game={g} names={names} />
-                <span className="score text-right text-xl">
-                  {g.score1 !== null && g.score2 !== null ? `${g.score1}–${g.score2}` : "—"}
-                </span>
-              </li>
-            ))}
+            {done.map((g) => {
+              const secs = gameSeconds(g);
+              return (
+                <li key={g.id} className="grid items-center gap-2 py-3 sm:grid-cols-[3rem_1fr_6rem_4rem]">
+                  <span className="score text-ink">#{g.number}</span>
+                  <Teams game={g} names={names} />
+                  <span className="score text-right text-xl">
+                    {g.score1 !== null && g.score2 !== null ? `${g.score1}–${g.score2}` : "—"}
+                  </span>
+                  <span className="score text-right text-sm text-ink" title="Game time">
+                    {secs === null ? "" : clock(secs)}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}

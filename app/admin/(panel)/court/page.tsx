@@ -6,6 +6,7 @@ import { Badge, Card, Field, Input, Select, Skeleton, Textarea } from "@/compone
 import { requireAdmin } from "@/lib/auth";
 import { hourLabel } from "@/lib/court";
 import { money } from "@/lib/format";
+import { PAYEE_PLACEHOLDER } from "@/lib/payee";
 import { getAdminCourtConfig, publicAssetUrl, QR_PLACEHOLDER } from "@/lib/queries";
 import type { CourtSettings, PlayType } from "@/lib/types";
 import {
@@ -107,6 +108,18 @@ function SettingsForm({ s }: { s: CourtSettings }) {
             <Textarea name="payment_instructions" defaultValue={s.payment_instructions ?? ""} />
           </Field>
         </div>
+        <Field label="GCash account name" hint="Shown beside the court QR (bookings and open play).">
+          <Input name="payment_name" defaultValue={s.payment_name ?? ""} maxLength={60} placeholder={PAYEE_PLACEHOLDER.name} />
+        </Field>
+        <Field label="GCash number" hint="11 digits. Blank shows a placeholder number.">
+          <Input
+            name="payment_number"
+            type="tel"
+            inputMode="numeric"
+            defaultValue={s.payment_number ?? ""}
+            placeholder={PAYEE_PLACEHOLDER.number}
+          />
+        </Field>
         <div className="sm:col-span-2 lg:col-span-3">
           <SubmitButton>Save court settings</SubmitButton>
         </div>

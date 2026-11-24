@@ -12,6 +12,7 @@ import { HOLD_MINUTES, LEVELS } from "@/lib/open-play";
 import { browserClient } from "@/lib/supabase/browser";
 import type { Level, PublicSession } from "@/lib/types";
 import { joinSession, releaseSignupHold } from "../actions";
+import type { Payee } from "@/lib/payee";
 import { PayPanel, type PayTicket } from "../pay-panel";
 
 const STEPS = ["Your details", "Pay"] as const;
@@ -21,11 +22,13 @@ export function JoinWizard({
   currency,
   qrUrl,
   instructions,
+  payee,
 }: {
   initial: PublicSession;
   currency: string;
   qrUrl: string;
   instructions: string | null;
+  payee: Payee;
 }) {
   const router = useRouter();
   const [session, setSession] = useState(initial);
@@ -114,7 +117,14 @@ export function JoinWizard({
 
         <div className="rounded-md bg-panel p-5 sm:p-6">
           {ticket ? (
-            <PayPanel ticket={ticket} currency={currency} qrUrl={qrUrl} instructions={instructions} onStartOver={startOver} />
+            <PayPanel
+              ticket={ticket}
+              currency={currency}
+              qrUrl={qrUrl}
+              instructions={instructions}
+              payee={payee}
+              onStartOver={startOver}
+            />
           ) : (
             <form
               noValidate

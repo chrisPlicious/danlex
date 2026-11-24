@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Alert, Button, Field, Input } from "@/components/ui";
+import type { Payee } from "@/lib/payee";
 import { cancelSignup, findOffer } from "../../actions";
 import { PayPanel } from "../../pay-panel";
 
@@ -93,6 +94,7 @@ export function OfferPay({
   currency,
   qrUrl,
   instructions,
+  payee,
   offer,
 }: {
   signupId: string;
@@ -102,6 +104,7 @@ export function OfferPay({
   currency: string;
   qrUrl: string;
   instructions: string | null;
+  payee: Payee;
   offer: boolean;
 }) {
   const [expiresAt] = useState(() => Date.now() + msLeft);
@@ -111,6 +114,7 @@ export function OfferPay({
       currency={currency}
       qrUrl={qrUrl}
       instructions={instructions}
+      payee={payee}
       offer={offer}
     />
   );

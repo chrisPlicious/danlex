@@ -3,10 +3,26 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { ActionForm, SubmitButton } from "@/components/action-form";
+import { GameClock } from "@/components/game-clock";
+import { OpenPlayStandings } from "@/components/open-play-standings";
 import { Badge, buttonClass, Card, cn, Field, Input, Select, Skeleton } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
 import { bookingWhen, dateTime, money } from "@/lib/format";
-import { KIND_LABEL, LEVELS, levelLabel, playerStates, rotationOrder, SIGNUP_STATUS_LABEL, suggestNextGame } from "@/lib/open-play";
+import {
+  clock,
+  gameSeconds,
+  KIND_LABEL,
+  LEVELS,
+  levelLabel,
+  MAX_GAMES,
+  pairRotation,
+  partnerModeLabel,
+  playerStates,
+  rotationOrder,
+  SIGNUP_STATUS_LABEL,
+  suggestNextGame,
+  tiebreakLabel,
+} from "@/lib/open-play";
 import { getAdminCourtConfig } from "@/lib/queries";
 import type { QueueGame, Session, SessionQueue, SessionSignup } from "@/lib/types";
 import {
@@ -16,6 +32,7 @@ import {
   finishGame,
   resendSignupEmail,
   saveSession,
+  setPartner,
   signupAction,
   startGame,
   voidGame,
@@ -49,7 +66,14 @@ async function Content({ params }: { params: PageProps<"/admin/sessions/[id]">["
   ]);
   if (!session) notFound();
   const signups = rows ?? [];
-  const queue = (queueData ?? { players: [], games: [] }) as SessionQueue;
+  const queue: SessionQueue = {
+    partnerMode: session.partner_mode,
+    tiebreak: session.tiebreak,
+    maxGames: MAX_GAMES,
+    players: [],
+    games: [],
+    ...((queueData ?? {}) as Partial<SessionQueue>),
+  };
   const currency = settings?.currency ?? "PHP";
   const now = new Date().getTime();
 
@@ -68,6 +92,20 @@ async function Content({ params }: { params: PageProps<"/admin/sessions/[id]">["
   const ended = Date.parse(session.ends_at) <= now;
   const collected = confirmed.reduce((sum, s) => sum + Number(s.amount), 0);
 
+  // fixed partners: a pair only counts when both are confirmed and point at each other
+  const confirmedIds = new Set(confirmed.map((s) => s.id));
+  const partnerOf = new Map(confirmed.map((s) => [s.id, s.partner_id]));
+  const pairedWith = (s: SessionSignup) =>
+    s.partner_id && confirmedIds.has(s.partner_id) && partnerOf.get(s.partner_id) === s.id ? s.partner_id : null;
+  const partnerPicker = (s: SessionSignup) => {
+    if (session.partner_mode !== "fixed" || !scheduled || s.status !== "confirmed") return undefined;
+    const current = pairedWith(s);
+    return {
+      current,
+      options: confirmed.filter((o) => o.id !== s.id && (o.id === current || !pairedWith(o))).map((o) => ({ id: o.id, name: o.name })),
+    };
+  };
+
   return (
     <div className="space-y-8">
       <LiveRefresh sessionId={session.id} />
@@ -79,7 +117,8 @@ async function Content({ params }: { params: PageProps<"/admin/sessions/[id]">["
           <h1 className="display mt-2 text-4xl">{session.title}</h1>
           <p className="mt-2 font-semibold">{bookingWhen(session.starts_at, session.ends_at)}</p>
           <p className="mt-1 text-sm text-ink">
-            {KIND_LABEL[session.kind]} · {money(session.fee, currency)} per player · {session.level_note ?? "All levels"}
+            {KIND_LABEL[session.kind]} · {money(session.fee, currency)} per player · {session.level_note ?? "All levels"} ·{" "}
+            {partnerModeLabel(session.partner_mode)}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -117,7 +156,14 @@ async function Content({ params }: { params: PageProps<"/admin/sessions/[id]">["
         ) : (
           <div className="space-y-2">
             {confirmed.map((s) => (
-              <SignupRow key={s.id} s={s} proof={proofOf(s)} currency={currency} scheduled={scheduled} />
+              <SignupRow
+                key={s.id}
+                s={s}
+                proof={proofOf(s)}
+                currency={currency}
+                scheduled={scheduled}
+                partner={partnerPicker(s)}
+              />
             ))}
           </div>
         )}
@@ -249,7 +295,44 @@ function Act({ id, action, label, variant = "secondary", confirm }: { id: string
   );
 }
 
-function SignupRow({ s, proof, currency, scheduled, place }: { s: SessionSignup; proof?: string; currency: string; scheduled: boolean; place?: number }) {
+function PartnerForm({ id, current, options }: { id: string; current: string | null; options: { id: string; name: string }[] }) {
+  return (
+    <ActionForm action={setPartner} className="mt-2 flex flex-wrap items-center gap-2" key={current ?? "none"}>
+      <input type="hidden" name="id" value={id} />
+      <label className="text-xs font-bold uppercase tracking-wider text-ink" htmlFor={`partner-${id}`}>
+        Partner
+      </label>
+      <Select id={`partner-${id}`} name="partner_id" defaultValue={current ?? ""} className="h-8 w-48 text-sm">
+        <option value="">No partner</option>
+        {options.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.name}
+          </option>
+        ))}
+      </Select>
+      <SubmitButton variant="secondary" size="sm" pendingLabel="…">
+        Save
+      </SubmitButton>
+    </ActionForm>
+  );
+}
+
+function SignupRow({
+  s,
+  proof,
+  currency,
+  scheduled,
+  place,
+  partner,
+}: {
+  s: SessionSignup;
+  proof?: string;
+  currency: string;
+  scheduled: boolean;
+  place?: number;
+  /** Fixed partner mode only. */
+  partner?: { current: string | null; options: { id: string; name: string }[] };
+}) {
   return (
     <Card className={cn("p-4", s.refund_needed && "border-ball/50")}>
       <div className="flex flex-wrap items-center gap-4">
@@ -280,6 +363,7 @@ function SignupRow({ s, proof, currency, scheduled, place }: { s: SessionSignup;
             {(s.status === "held" || s.status === "offered") && s.hold_expires_at && ` · until ${dateTime(s.hold_expires_at)}`}
           </p>
           {s.admin_notes && <p className="mt-1 text-sm text-accent">Note: {s.admin_notes}</p>}
+          {partner && <PartnerForm id={s.id} current={partner.current} options={partner.options} />}
         </div>
         <div className="flex flex-wrap gap-2">
           {scheduled && s.status === "confirmed" && (
@@ -325,38 +409,59 @@ function SignupRow({ s, proof, currency, scheduled, place }: { s: SessionSignup;
 function GameQueue({ session, queue, signups }: { session: Session; queue: SessionQueue; signups: SessionSignup[] }) {
   const fullName = new Map(signups.map((s) => [s.id, s.name]));
   const name = (id: string) => fullName.get(id) ?? "Player";
-  const states = playerStates(queue.players, queue.games);
+  const names = Object.fromEntries(fullName);
+  const fixed = queue.partnerMode === "fixed";
+  const max = queue.maxGames;
+  const states = playerStates(queue.players, queue.games, max);
   const order = rotationOrder(states);
-  const suggestion = suggestNextGame(queue.players, queue.games);
+  const readyPairs = pairRotation(states);
+  const suggestion = suggestNextGame(queue.players, queue.games, { partnerMode: queue.partnerMode, maxGames: max });
   const playing = queue.games.find((g) => g.status === "playing");
   const done = queue.games.filter((g) => g.status === "done");
   const ready = order.map((s) => s.player);
   const playedOf = new Map(states.map((s) => [s.player.id, s.played]));
+  const maxedOut = states.filter((s) => s.maxedOut).length;
   const team = (g: Pick<QueueGame, "team1" | "team2">, t: 1 | 2) => (t === 1 ? g.team1 : g.team2).map(name).join(" & ");
+  const pairKey = (p: readonly string[]) => p.join(":");
+  const canStart = fixed ? readyPairs.length >= 2 : ready.length >= 4;
 
   return (
     <section className="space-y-4">
-      <h2 className="display text-2xl">Court</h2>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="display text-2xl">Court</h2>
+        <p className="text-sm text-ink">
+          {partnerModeLabel(queue.partnerMode)} · up to {max} games each · tiebreak: {tiebreakLabel(queue.tiebreak)}
+        </p>
+      </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="on-board rounded-md bg-board p-5">
-          <p className="mb-3 text-xs font-bold uppercase tracking-widest text-ink">{playing ? `Game ${playing.number} · on court` : "Court free"}</p>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="text-xs font-bold uppercase tracking-widest text-ink">{playing ? `Game ${playing.number} · on court` : "Court free"}</p>
+            {playing && <GameClock startedAt={playing.startedAt} className="score text-3xl text-court" />}
+          </div>
           {playing ? (
             <ActionForm action={finishGame} className="space-y-4" key={playing.id}>
               <input type="hidden" name="id" value={playing.id} />
               <div className="grid grid-cols-[1fr_4.5rem] items-center gap-3">
                 <p className="font-bold">{team(playing, 1)}</p>
-                <Input name="score1" type="number" min={0} max={99} inputMode="numeric" aria-label="Team 1 score" className="text-center" />
+                <Input name="score1" type="number" min={0} max={99} inputMode="numeric" aria-label="Team 1 score" className="text-center" required />
                 <p className="font-bold">{team(playing, 2)}</p>
-                <Input name="score2" type="number" min={0} max={99} inputMode="numeric" aria-label="Team 2 score" className="text-center" />
+                <Input name="score2" type="number" min={0} max={99} inputMode="numeric" aria-label="Team 2 score" className="text-center" required />
               </div>
-              <p className="text-xs text-ink">Started {TIME.format(new Date(playing.startedAt))}. Scores are optional.</p>
+              <p className="text-xs text-ink">
+                Started {TIME.format(new Date(playing.startedAt))}. Finishing stops the clock and saves the time. Both scores, no ties.
+              </p>
               <div className="flex flex-wrap gap-2">
                 <SubmitButton pendingLabel="Saving…">Finish game</SubmitButton>
               </div>
             </ActionForm>
           ) : (
             <p className="text-ink">
-              {ready.length >= 4 ? "Start the next game below." : `${ready.length} player(s) ready. Check in at least four to start a game.`}
+              {canStart
+                ? "Start the next game. The clock starts when you do."
+                : fixed
+                  ? `${readyPairs.length} pair(s) ready. Two pairs need to be checked in to start a game.`
+                  : `${ready.length} player(s) ready. Check in at least four to start a game.`}
             </p>
           )}
           {playing && (
@@ -373,9 +478,44 @@ function GameQueue({ session, queue, signups }: { session: Session; queue: Sessi
 
         <Card className="p-5">
           <p className="mb-1 font-bold">Next game</p>
-          <p className="mb-4 text-xs text-ink">Suggested: fewest games, then longest wait, levels mixed. Change anyone you like.</p>
-          {ready.length < 4 ? (
-            <p className="text-ink">Need four ready players (checked in, not resting, not on court).</p>
+          <p className="mb-4 text-xs text-ink">
+            {fixed
+              ? "Suggested: the two pairs with the fewest games that have waited longest. Change them if you like."
+              : "Suggested: fewest games and longest wait, with partners who haven't played together yet. Change anyone you like."}
+          </p>
+          {!canStart ? (
+            <p className="text-ink">
+              {fixed
+                ? `Need two ready pairs (both checked in, not resting, under ${max} games). Pair players up in the Players list below.`
+                : `Need four ready players (checked in, not resting, not on court, under ${max} games).`}
+            </p>
+          ) : fixed ? (
+            <ActionForm action={startGame} className="space-y-3" key={`${queue.games.length}-${session.version}`}>
+              <input type="hidden" name="session_id" value={session.id} />
+              {(
+                [
+                  ["Team 1", "t1", suggestion?.team1],
+                  ["Team 2", "t2", suggestion?.team2],
+                ] as const
+              ).map(([label, field, pick]) => (
+                <div key={label} className="grid grid-cols-[4rem_1fr] items-center gap-2">
+                  <span className="text-sm font-bold text-ink">{label}</span>
+                  <Select name={field} defaultValue={pick ? pairKey(pick) : ""} aria-label={`${label} pair`} required>
+                    <option value="" disabled>
+                      Pick a pair…
+                    </option>
+                    {readyPairs.map((p) => (
+                      <option key={pairKey(p)} value={pairKey(p)}>
+                        {name(p[0])} & {name(p[1])} · {Math.max(playedOf.get(p[0]) ?? 0, playedOf.get(p[1]) ?? 0)}/{max}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              ))}
+              <SubmitButton disabled={!!playing} pendingLabel="Starting…">
+                {playing ? "Finish the current game first" : "Start game"}
+              </SubmitButton>
+            </ActionForm>
           ) : (
             <ActionForm action={startGame} className="space-y-3" key={`${queue.games.length}-${session.version}`}>
               <input type="hidden" name="session_id" value={session.id} />
@@ -394,7 +534,7 @@ function GameQueue({ session, queue, signups }: { session: Session; queue: Sessi
                       </option>
                       {ready.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {name(p.id)} · {levelLabel(p.level)} · {playedOf.get(p.id) ?? 0}g
+                          {name(p.id)} · {levelLabel(p.level)} · {playedOf.get(p.id) ?? 0}/{max}
                         </option>
                       ))}
                     </Select>
@@ -406,34 +546,54 @@ function GameQueue({ session, queue, signups }: { session: Session; queue: Sessi
               </SubmitButton>
             </ActionForm>
           )}
-          {order.length > 4 && (
-            <p className="mt-4 text-xs text-ink">
-              Then: {order.slice(4).map((s) => name(s.player.id).split(" ")[0]).join(", ")}
+          {fixed
+            ? readyPairs.length > 2 && (
+                <p className="mt-4 text-xs text-ink">
+                  Then: {readyPairs.slice(2).map((p) => `${name(p[0]).split(" ")[0]} & ${name(p[1]).split(" ")[0]}`).join(", ")}
+                </p>
+              )
+            : order.length > 4 && (
+                <p className="mt-4 text-xs text-ink">
+                  Then: {order.slice(4).map((s) => name(s.player.id).split(" ")[0]).join(", ")}
+                </p>
+              )}
+          {maxedOut > 0 && (
+            <p className="mt-2 text-xs text-ink">
+              {maxedOut} player(s) have played all {max} games and are out of the rotation.
             </p>
           )}
         </Card>
       </div>
 
+      <OpenPlayStandings queue={queue} names={names} />
+
       {done.length > 0 && (
         <details className="rounded-md border border-fg/10 p-4">
           <summary className="cursor-pointer font-bold">Finished games ({done.length})</summary>
+          <p className="mt-2 text-xs text-ink">Fixing a score keeps the recorded time.</p>
           <ul className="mt-3 divide-y divide-fg/10">
-            {done.map((g) => (
-              <li key={g.id} className="py-3">
-                <ActionForm action={finishGame} className="grid items-center gap-2 sm:grid-cols-[3rem_1fr_4rem_4rem_auto]">
-                  <input type="hidden" name="id" value={g.id} />
-                  <span className="score text-ink">#{g.number}</span>
-                  <span className="text-sm">
-                    <strong>{team(g, 1)}</strong> vs <strong>{team(g, 2)}</strong>
-                  </span>
-                  <Input name="score1" type="number" min={0} max={99} defaultValue={g.score1 ?? ""} aria-label="Team 1 score" className="h-9 text-center" />
-                  <Input name="score2" type="number" min={0} max={99} defaultValue={g.score2 ?? ""} aria-label="Team 2 score" className="h-9 text-center" />
-                  <SubmitButton variant="ghost" size="sm" pendingLabel="…">
-                    Save
-                  </SubmitButton>
-                </ActionForm>
-              </li>
-            ))}
+            {done.map((g) => {
+              const secs = gameSeconds(g);
+              return (
+                <li key={g.id} className="py-3">
+                  <ActionForm action={finishGame} className="grid items-center gap-2 sm:grid-cols-[3rem_1fr_4rem_4rem_4rem_auto]">
+                    <input type="hidden" name="id" value={g.id} />
+                    <span className="score text-ink">#{g.number}</span>
+                    <span className="text-sm">
+                      <strong>{team(g, 1)}</strong> vs <strong>{team(g, 2)}</strong>
+                    </span>
+                    <Input name="score1" type="number" min={0} max={99} defaultValue={g.score1 ?? ""} aria-label="Team 1 score" className="h-9 text-center" required />
+                    <Input name="score2" type="number" min={0} max={99} defaultValue={g.score2 ?? ""} aria-label="Team 2 score" className="h-9 text-center" required />
+                    <span className="score text-center text-sm text-ink" title="Game time">
+                      {secs === null ? "—" : clock(secs)}
+                    </span>
+                    <SubmitButton variant="ghost" size="sm" pendingLabel="…">
+                      Save
+                    </SubmitButton>
+                  </ActionForm>
+                </li>
+              );
+            })}
           </ul>
         </details>
       )}

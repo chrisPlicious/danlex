@@ -6,7 +6,7 @@ import { after } from "next/server";
 import { z } from "zod";
 import type { ActionState } from "@/components/action-form";
 import { adminClient } from "@/lib/auth";
-import { courtDateTime } from "@/lib/open-play";
+import { courtDateTime, MAX_GAMES } from "@/lib/open-play";
 import { sendOfferEmails, sendSignupEmail } from "@/lib/send-confirmation";
 import { siteOrigin } from "@/lib/site-url";
 
@@ -39,7 +39,11 @@ const RPC_ERRORS: Record<string, string> = {
   GAME_IN_PROGRESS: "A game is already on court. Finish it first.",
   PLAYER_NOT_READY: "All four must be confirmed, checked in and not resting.",
   GAME_NOT_FOUND: "That game is gone.",
-  BAD_SCORE: "Enter both scores, or neither.",
+  BAD_SCORE: "Enter both scores. A game can't end level.",
+  GAME_LIMIT: `Someone in that game has already played ${MAX_GAMES} games, the most allowed.`,
+  NOT_PARTNERS: "Fixed partners: each team has to be a pair. Pair them up in the Players list first.",
+  BAD_PARTNER: "Pick another confirmed player from this session.",
+  MODE_LOCKED: "Games have been played, so the partner mode can't change now. The tiebreak still can.",
 };
 
 function friendly(error: { message: string; code?: string }) {
@@ -85,6 +89,8 @@ const SessionInput = z
     level_note: blankToNull,
     notes: blankToNull,
     signups_open: z.literal("on").optional(),
+    partner_mode: z.enum(["random", "fixed"]).default("random"),
+    tiebreak: z.enum(["win_time", "last_two_losses"]).default("win_time"),
   })
   .refine((v) => v.end > v.start, { message: "must be after the start", path: ["end"] });
 
@@ -115,7 +121,13 @@ export async function saveSession(_: ActionState, fd: FormData): Promise<ActionS
     p_signups_open: v.signups_open === "on",
   });
   if (error) return fail(friendly(error));
+  const { error: playError } = await sb.rpc("admin_set_session_play", {
+    p_id: id as string,
+    p_partner_mode: v.partner_mode,
+    p_tiebreak: v.tiebreak,
+  });
   revalidateAll();
+  if (playError) return fail(`Saved, but ${friendly(playError)}`);
   if (!v.id) redirect(`/admin/sessions/${id as string}`);
   await emailOffersLater(); // more capacity offers spots to the waitlist
   return done("Session saved.");
@@ -233,48 +245,75 @@ export async function addWalkin(_: ActionState, fd: FormData): Promise<ActionSta
 // game queue
 // ---------------------------------------------------------------------------
 
-const StartGame = z.object({
-  session_id: z.uuid(),
-  t1a: z.uuid("pick a player"),
-  t1b: z.uuid("pick a player"),
-  t2a: z.uuid("pick a player"),
-  t2b: z.uuid("pick a player"),
-});
+// a team is either two player fields (random partners) or one "id:id" pair field (fixed partners)
+const pair = z
+  .string()
+  .transform((v) => v.split(":"))
+  .pipe(z.tuple([z.uuid(), z.uuid()]));
+
+const StartGame = z.union([
+  z.object({ session_id: z.uuid(), t1: pair, t2: pair }),
+  z
+    .object({ session_id: z.uuid(), t1a: z.uuid(), t1b: z.uuid(), t2a: z.uuid(), t2b: z.uuid() })
+    .transform((v) => ({ session_id: v.session_id, t1: [v.t1a, v.t1b], t2: [v.t2a, v.t2b] })),
+]);
 
 export async function startGame(_: ActionState, fd: FormData): Promise<ActionState> {
   const parsed = StartGame.safeParse(Object.fromEntries(fd));
-  if (!parsed.success) return fail("Pick four players.");
+  if (!parsed.success) return fail("Pick both teams.");
   const v = parsed.data;
   const sb = await adminClient();
   const { error } = await sb.rpc("admin_start_game", {
     p_session_id: v.session_id,
-    p_team1: [v.t1a, v.t1b],
-    p_team2: [v.t2a, v.t2b],
+    p_team1: v.t1,
+    p_team2: v.t2,
   });
   if (error) return fail(friendly(error));
   revalidateAll();
-  return done("Game on.");
+  return done("Game on. The clock is running.");
 }
 
+// a blank box must not turn into 0
 const score = z
   .string()
   .trim()
-  .optional()
-  .transform((v) => (v ? Number(v) : null))
-  .pipe(z.number().int().min(0).max(99).nullable());
+  .min(1)
+  .transform(Number)
+  .pipe(z.number().int().min(0).max(99));
 
-const FinishGame = z.object({ id: z.uuid(), score1: score, score2: score });
+const FinishGame = z
+  .object({ id: z.uuid(), score1: score, score2: score })
+  .refine((v) => v.score1 !== v.score2, "a game can't end level");
 
-/** Finish a game (or fix the score of a finished one). Scores are optional but come in pairs. */
+/** Finish a game, stopping its clock (or fix the score of a finished one). Both scores, no draws. */
 export async function finishGame(_: ActionState, fd: FormData): Promise<ActionState> {
   const parsed = FinishGame.safeParse(Object.fromEntries(fd));
-  if (!parsed.success) return fail("Scores must be whole numbers 0–99.");
+  if (!parsed.success) return fail("Enter both scores (0–99). A game can't end level.");
   const v = parsed.data;
   const sb = await adminClient();
   const { error } = await sb.rpc("admin_finish_game", { p_game_id: v.id, p_score1: v.score1, p_score2: v.score2 });
   if (error) return fail(friendly(error));
   revalidateAll();
   return done("Game saved.");
+}
+
+const SetPartner = z.object({
+  id: z.uuid(),
+  partner_id: z.uuid().or(z.literal("").transform(() => null)),
+});
+
+/** Fixed partners: pair two players (each leaves any old partner), or unpair with an empty choice. */
+export async function setPartner(_: ActionState, fd: FormData): Promise<ActionState> {
+  const parsed = SetPartner.safeParse(Object.fromEntries(fd));
+  if (!parsed.success) return fail("Invalid request");
+  const sb = await adminClient();
+  const { error } = await sb.rpc("admin_set_partner", {
+    p_signup_id: parsed.data.id,
+    p_partner_id: parsed.data.partner_id,
+  });
+  if (error) return fail(friendly(error));
+  revalidateAll();
+  return done(parsed.data.partner_id ? "Paired." : "Unpaired.");
 }
 
 export async function voidGame(_: ActionState, fd: FormData): Promise<ActionState> {

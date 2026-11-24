@@ -15,6 +15,9 @@ export interface Tournament {
   currency: string;
   payment_qr_path: string | null;
   payment_instructions: string | null;
+  /** GCash receiver shown beside the QR, for players who send to the number instead of scanning. */
+  payment_name: string | null;
+  payment_number: string | null;
   status: TournamentStatus;
 }
 
@@ -118,6 +121,8 @@ export interface CourtSettings {
   currency: string;
   payment_qr_path: string | null;
   payment_instructions: string | null;
+  payment_name: string | null;
+  payment_number: string | null;
 }
 
 /** A rental mode customers pick (Per Hour…). rate is per hour. Open play is a session, not a play type. */
@@ -167,6 +172,10 @@ export type SessionStatus = "scheduled" | "cancelled";
 export type SignupStatus = "held" | "confirmed" | "waitlisted" | "offered" | "cancelled" | "expired";
 /** Self-rated: 1 beginner, 2 intermediate, 3 advanced. */
 export type Level = 1 | 2 | 3;
+/** random: new partners every game, records per player. fixed: admin-made pairs play every game together. */
+export type PartnerMode = "random" | "fixed";
+/** How players level on wins and losses are separated (the other method is used next). */
+export type Tiebreak = "win_time" | "last_two_losses";
 
 export interface Session {
   id: string;
@@ -180,12 +189,14 @@ export interface Session {
   notes: string | null;
   signups_open: boolean;
   status: SessionStatus;
+  partner_mode: PartnerMode;
+  tiebreak: Tiebreak;
   version: number;
   created_at: string;
 }
 
 /** get_sessions_public: a session plus live counts, no player details. */
-export interface PublicSession extends Omit<Session, "created_at"> {
+export interface PublicSession extends Omit<Session, "created_at" | "partner_mode" | "tiebreak"> {
   spots_left: number;
   waitlist: number;
 }
@@ -208,6 +219,8 @@ export interface SessionSignup {
   source: "online" | "admin";
   checked_in_at: string | null;
   queue_paused: boolean;
+  /** Fixed partner mode: the signup they're paired with (mutual). */
+  partner_id: string | null;
   refund_needed: boolean;
   refunded_at: string | null;
   cancelled_at: string | null;
@@ -224,6 +237,7 @@ export interface QueuePlayer {
   level: Level;
   checkedInAt: string | null;
   paused: boolean;
+  partnerId: string | null;
   lastEndedAt: string | null;
 }
 
@@ -240,6 +254,10 @@ export interface QueueGame {
 }
 
 export interface SessionQueue {
+  partnerMode: PartnerMode;
+  tiebreak: Tiebreak;
+  /** Most finished games one player may play. */
+  maxGames: number;
   players: QueuePlayer[];
   games: QueueGame[];
 }

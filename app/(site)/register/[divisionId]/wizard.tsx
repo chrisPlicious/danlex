@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ticketClass } from "@/components/club";
+import { PayeeDetails } from "@/components/payee-details";
 import { Alert, Button, cn, EntryCount, Field, Input } from "@/components/ui";
 import { useLiveDivisions } from "@/components/use-live-divisions";
 import { compressImage } from "@/lib/compress-image";
@@ -232,6 +233,7 @@ export function RegistrationWizard({
                     {tournament.payment_instructions ||
                       "Scan the QR code with your e-wallet or banking app and pay the exact amount. Take a screenshot of the successful payment — you'll upload it next."}
                   </p>
+                  <PayeeDetails payee={{ name: tournament.payment_name, number: tournament.payment_number }} />
                 </div>
               </div>
               <Field

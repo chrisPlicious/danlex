@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { ActionState } from "@/components/action-form";
 import { adminClient } from "@/lib/auth";
 import { courtInstant } from "@/lib/court";
+import { cleanMobile, MOBILE_11 } from "@/lib/payee";
 import { sendBookingConfirmation } from "@/lib/send-confirmation";
 
 export async function resendBookingConfirmation(_: ActionState, fd: FormData): Promise<ActionState> {
@@ -45,6 +46,13 @@ const SettingsInput = z
     days_ahead: z.coerce.number().int().min(1).max(90),
     currency: z.string().trim().toUpperCase().length(3),
     payment_instructions: blankToNull,
+    payment_name: z.string().trim().max(60).optional().transform((v) => v || null),
+    payment_number: z
+      .string()
+      .optional()
+      .transform((v) => cleanMobile(v ?? ""))
+      .refine((v) => v === "" || MOBILE_11.test(v), "use an 11-digit mobile number, e.g. 09171234567")
+      .transform((v) => v || null),
   })
   .refine((v) => v.close_hour > v.open_hour, { message: "closing time must be after opening time", path: ["close_hour"] });
 

@@ -3,10 +3,12 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
+import { PayeeDetails } from "@/components/payee-details";
 import { Alert, Badge, Button, cn, Field, Input } from "@/components/ui";
 import { compressImage } from "@/lib/compress-image";
 import { money } from "@/lib/format";
 import { countdown } from "@/lib/open-play";
+import type { Payee } from "@/lib/payee";
 import { isPaymentRef, PAYMENT_REF_ERROR, pastedPaymentRef, typedPaymentRef } from "@/lib/payment-ref";
 import { browserClient } from "@/lib/supabase/browser";
 import { completeSignup, startSignupProofUpload } from "./actions";
@@ -25,6 +27,7 @@ export function PayPanel({
   currency,
   qrUrl,
   instructions,
+  payee,
   offer,
   onStartOver,
 }: {
@@ -32,6 +35,7 @@ export function PayPanel({
   currency: string;
   qrUrl: string;
   instructions: string | null;
+  payee: Payee;
   /** A waitlist offer rather than a fresh hold: changes the copy only. */
   offer?: boolean;
   onStartOver?: () => void;
@@ -132,6 +136,7 @@ export function PayPanel({
             {instructions ||
               "Scan the QR code with your e-wallet or banking app and pay the exact amount. Take a screenshot of the successful payment and upload it below."}
           </p>
+          <PayeeDetails payee={payee} />
         </div>
       </div>
       <Field

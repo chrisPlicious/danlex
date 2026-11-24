@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { ActionState } from "@/components/action-form";
 import { adminClient, isAdminUser } from "@/lib/auth";
+import { cleanMobile, MOBILE_11 } from "@/lib/payee";
 import { createSessionClient } from "@/lib/supabase/server";
 
 const fail = (error: string): ActionState => ({ ok: false, error });
@@ -64,6 +65,12 @@ const TournamentInput = z.object({
   description: z.string().trim().max(2000).optional(),
   currency: z.string().trim().toUpperCase().length(3),
   payment_instructions: z.string().trim().max(600).optional(),
+  payment_name: z.string().trim().max(60).optional(),
+  payment_number: z
+    .string()
+    .optional()
+    .transform((v) => cleanMobile(v ?? ""))
+    .refine((v) => v === "" || MOBILE_11.test(v), "use an 11-digit mobile number, e.g. 09171234567"),
   status: z.enum(["draft", "open", "closed", "in_progress", "completed"]),
 });
 
@@ -77,6 +84,8 @@ export async function saveTournament(_: ActionState, fd: FormData): Promise<Acti
     venue: v.venue || null,
     description: v.description || null,
     payment_instructions: v.payment_instructions || null,
+    payment_name: v.payment_name || null,
+    payment_number: v.payment_number || null,
   };
 
   const sb = await adminClient();

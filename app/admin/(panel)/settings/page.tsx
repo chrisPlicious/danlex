@@ -6,6 +6,7 @@ import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Alert, Badge, Card, Field, Input, Select, Skeleton, Textarea } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
 import { courtInstant } from "@/lib/court";
+import { PAYEE_PLACEHOLDER } from "@/lib/payee";
 import { getAdminTournament, publicAssetUrl, QR_PLACEHOLDER } from "@/lib/queries";
 import type { Division, Tournament } from "@/lib/types";
 import { deleteDivision, removeQr, saveDivision, saveTournament, uploadQr } from "../../actions/settings";
@@ -117,6 +118,18 @@ function TournamentForm({ tournament: t }: { tournament?: Tournament }) {
             <Textarea name="payment_instructions" defaultValue={t?.payment_instructions ?? ""} />
           </Field>
         </div>
+        <Field label="GCash account name" hint="Shown beside the QR so players can send to the number instead.">
+          <Input name="payment_name" defaultValue={t?.payment_name ?? ""} maxLength={60} placeholder={PAYEE_PLACEHOLDER.name} />
+        </Field>
+        <Field label="GCash number" hint="11 digits. Blank shows a placeholder number.">
+          <Input
+            name="payment_number"
+            type="tel"
+            inputMode="numeric"
+            defaultValue={t?.payment_number ?? ""}
+            placeholder={PAYEE_PLACEHOLDER.number}
+          />
+        </Field>
         <div className="md:col-span-2">
           <Field label="Description">
             <Textarea name="description" defaultValue={t?.description ?? ""} />

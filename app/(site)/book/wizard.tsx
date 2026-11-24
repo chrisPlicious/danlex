@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { ticketClass } from "@/components/club";
+import { PayeeDetails } from "@/components/payee-details";
 import { Alert, Badge, Button, cn, Field, Input } from "@/components/ui";
 import { compressImage } from "@/lib/compress-image";
 import { bookableDays, daySlots, hourLabel, maxHoursFrom } from "@/lib/court";
@@ -480,6 +481,7 @@ export function BookingWizard({
                     {settings.payment_instructions ||
                       "Scan the QR code with your e-wallet or banking app and pay the exact amount. Take a screenshot of the successful payment and upload it below."}
                   </p>
+                  <PayeeDetails payee={{ name: settings.payment_name, number: settings.payment_number }} />
                 </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">

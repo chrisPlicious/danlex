@@ -98,6 +98,7 @@ async function Content({ params }: { params: PageProps<"/play/[id]">["params"] }
           currency={settings.currency}
           qrUrl={publicAssetUrl(settings.payment_qr_path) ?? QR_PLACEHOLDER}
           instructions={settings.payment_instructions}
+          payee={{ name: settings.payment_name, number: settings.payment_number }}
         />
       ) : (
         <Alert tone="ball">Payments aren&apos;t set up yet. Please check back soon.</Alert>

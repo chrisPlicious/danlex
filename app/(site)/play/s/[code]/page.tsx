@@ -52,8 +52,10 @@ async function Status({
       .maybeSingle<Row>(),
     sb
       .from("court_settings")
-      .select("currency, payment_qr_path, payment_instructions")
-      .maybeSingle<Pick<CourtSettings, "currency" | "payment_qr_path" | "payment_instructions">>(),
+      .select("currency, payment_qr_path, payment_instructions, payment_name, payment_number")
+      .maybeSingle<
+        Pick<CourtSettings, "currency" | "payment_qr_path" | "payment_instructions" | "payment_name" | "payment_number">
+      >(),
   ]);
   if (!s) notFound();
 
@@ -94,6 +96,7 @@ async function Status({
             currency={currency}
             qrUrl={publicAssetUrl(settings?.payment_qr_path ?? null) ?? QR_PLACEHOLDER}
             instructions={settings?.payment_instructions ?? null}
+            payee={{ name: settings?.payment_name ?? null, number: settings?.payment_number ?? null }}
             offer={s.status === "offered"}
           />
         </div>

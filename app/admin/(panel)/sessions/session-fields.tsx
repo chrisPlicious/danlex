@@ -1,5 +1,5 @@
 import { Field, Input, Select, Textarea } from "@/components/ui";
-import { courtParts, KIND_LABEL } from "@/lib/open-play";
+import { courtParts, KIND_LABEL, MAX_GAMES, PARTNER_MODES, TIEBREAKS } from "@/lib/open-play";
 import type { Session } from "@/lib/types";
 
 /** Shared fields of the new-session and edit-session forms. Times are court time (Manila). */
@@ -52,6 +52,32 @@ export function SessionFields({ s, defaultDay, defaultFee }: { s?: Session; defa
         <input type="checkbox" name="signups_open" defaultChecked={s?.signups_open ?? true} className="size-4 accent-[var(--color-ball)]" />
         Sign-ups open
       </label>
+      <Field
+        label="Partners"
+        hint={`Random: new partner every game, wins and losses per player. Fixed: you pair players up. Locked once a game is played. Max ${MAX_GAMES} games each.`}
+      >
+        <Select name="partner_mode" defaultValue={s?.partner_mode ?? "random"}>
+          {PARTNER_MODES.map((m) => (
+            <option key={m.value} value={m.value}>
+              {m.label}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <div className="md:col-span-2">
+        <Field
+          label="Tiebreak (level on wins and losses)"
+          hint="Fastest wins: lower average time of the games they won. Last two losses: lower total of their own points in their two most recent losses. Still level? The other one decides."
+        >
+          <Select name="tiebreak" defaultValue={s?.tiebreak ?? "win_time"}>
+            {TIEBREAKS.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </div>
     </>
   );
 }
